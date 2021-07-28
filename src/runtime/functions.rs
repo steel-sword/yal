@@ -6,6 +6,26 @@ use std::{
 
 use crate::types::{value, DotPair, DynType, List, ListItem, Value};
 
+fn lang_new(args: Value) -> Result<Value, String> {
+    let mut list = List::new(args);
+    let record_type = list.next().to_middle()?.to_struct_declare()?;
+    let rest = list.current_value.clone();
+    for _ in &*record_type.fields {
+        list.next().to_middle()?;
+    }
+    list.next().to_end()?;
+
+    Ok(value(DynType::Struct(record_type, rest)))
+}
+
+fn lang_apply(args: Value) -> Result<Value, String> {
+    let mut list = List::new(args);
+    let closure = list.next().to_middle()?.to_closure()?;
+    let args = list.next().to_middle()?;
+    list.next().to_end()?;
+    closure(args)
+}
+
 fn lang_input(args: Value) -> Result<Value, String> {
     let mut buffer = String::new();
     List::new(args).next().to_end()?;
@@ -144,9 +164,70 @@ fn lang_concat(args: Value) -> Result<Value, String> {
     Ok(value(DynType::Str(accum)))
 }
 
+fn lang_number(args: Value) -> Result<Value, String> {
+    let mut list = List::new(args);
+    let parameter = list.next().to_middle()?;
+    list.next().to_end()?;
+
+    let number = match &*parameter {
+        DynType::Nil => value(DynType::Number(0.0)),
+        DynType::Number(_) => parameter.clone(),
+        DynType::Str(s) => value(DynType::Number(
+            match s.parse::<f64>() {
+                Ok(num) => num,
+                Err(_) => return Err(format!("Cannot parse '{}' to int", s)),
+            }
+        )),
+        other => return Err(format!("Cannot parse '{}' to int", other)),
+    };
+
+    Ok(number)
+}
+
+fn lang_str(args: Value) -> Result<Value, String> {
+    let mut list = List::new(args);
+    let item = list.next().to_middle()?;
+    list.next().to_end()?;
+
+    Ok(value(DynType::Str(format!("{}", item))))
+}
+
+fn lang_split(args: Value) -> Result<Value, String> {
+    let mut list = List::new(args);
+    let text = list.next().to_middle()?.to_string();
+    let pat = match list.next() {
+        ListItem::Middle(s) => (&*s).to_string(),
+        ListItem::Last(_) => return Err(format!("Syntax Error")),
+        ListItem::End => " ".to_string(),
+    };
+    list.next().to_end()?;
+    let mut splitted: Vec<_> = text.split(&pat).collect();
+    splitted.reverse();
+
+    let mut pair = value(DynType::Nil);
+    for item in splitted {
+        pair = value(DynType::Pair(DotPair {
+            right: pair,
+            left: value(DynType::Str(item.to_string()))
+        }));
+    }
+
+    Ok(pair)
+}
+
 
 pub fn all_base_functions() -> HashMap<String, Value> {
     let mut functions = HashMap::new();
+
+    functions.insert(
+        "new".to_string(),
+        value(DynType::Closure(Rc::new(|args| lang_new(args))))
+    );
+
+    functions.insert(
+        "apply".to_string(),
+        value(DynType::Closure(Rc::new(|args| lang_apply(args))))
+    );
 
     functions.insert(
         "input".to_string(),
@@ -200,6 +281,21 @@ pub fn all_base_functions() -> HashMap<String, Value> {
     functions.insert(
         "concat".to_string(),
         value(DynType::Closure(Rc::new(|args| lang_concat(args)))),
+    );
+
+    functions.insert(
+        "number".to_string(),
+        value(DynType::Closure(Rc::new(|args| lang_number(args)))),
+    );
+
+    functions.insert(
+        "str".to_string(),
+        value(DynType::Closure(Rc::new(|args| lang_str(args))))
+    );
+
+    functions.insert(
+        "split".to_string(),
+        value(DynType::Closure(Rc::new(|args| lang_split(args)))),
     );
 
     functions

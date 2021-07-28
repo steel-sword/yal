@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{runtime::{custom_function::CustomFunction, scope::{ScopeRef, ScopeState}}, types::{value, DynType, List, ListItem, Value}};
+use crate::{runtime::{custom_function::CustomFunction, scope::{ScopeRef, ScopeState}}, types::{DynType, List, ListItem, StructType, Value, value}};
 
 use super::calculators::calculate;
 
@@ -72,6 +72,52 @@ fn def_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Re
         )?;
 
     Ok(value(DynType::Nil))
+}
+
+fn struct_form(_: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, String> {
+    let mut list = List::new(args);
+    let name = list.next().to_middle()?.to_symbol()?;
+    let mut fields_list = List::new(list.next().to_middle()?);
+    list.next().to_end()?;
+
+    let mut fields = vec![];
+    while let ListItem::Middle(field) = fields_list.next() {
+        fields.push(field.to_symbol()?)
+    }
+    scope
+        .borrow_mut()
+        .define_variable(
+            name.clone(),
+            value(DynType::StructDeclare(Rc::new(StructType { name, fields })))
+        )?;
+    Ok(value(DynType::Nil))
+}
+
+fn get_field_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, String> {
+    let mut list = List::new(args);
+    let value_expr = list.next().to_middle()?;
+    let requlred_field = list.next().to_middle()?.to_symbol()?;
+    list.next().to_end()?;
+
+    let new_var = calculate(
+        special_forms,
+        scope.clone(),
+        ScopeState::Expression,
+        value_expr,
+    )?;
+
+    let (struct_type, value) = new_var.to_struct()?;
+    let field_names = &*struct_type.fields;
+    let mut fields = List::new(value);
+
+    for name in field_names {
+        let item = fields.next().to_middle()?;
+        if name.eq(&requlred_field)  {
+            return Ok(item);
+        }
+    }
+
+    Err("Nothing was found".to_string())
 }
 
 fn if_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, String> {
@@ -146,6 +192,16 @@ pub fn all_special_forms() -> Rc<SpecialForms> {
         },
     );
 
+    let struct_form_name = "struct";
+    special_forms.insert(
+        struct_form_name.to_string(),
+        SpecialForm {
+            name: struct_form_name,
+            calculator: Rc::new(|special_forms, scope, args| struct_form(special_forms, scope, args)),
+            possible_scope_state: ScopeState::Local,
+        },
+    );
+
     let if_form_name = "if";
     special_forms.insert(
         if_form_name.to_string(),
@@ -172,6 +228,16 @@ pub fn all_special_forms() -> Rc<SpecialForms> {
         SpecialForm {
             name: or_form_name,
             calculator: Rc::new(|special_forms, scope, args| or_form(special_forms, scope, args)),
+            possible_scope_state: ScopeState::Expression,
+        },
+    );
+
+    let get_field_form_name = "::";
+    special_forms.insert(
+        get_field_form_name.to_string(),
+        SpecialForm {
+            name: get_field_form_name,
+            calculator: Rc::new(|special_forms, scope, args| get_field_form(special_forms, scope, args)),
             possible_scope_state: ScopeState::Expression,
         },
     );

@@ -77,12 +77,15 @@ pub fn calculate(
     special_forms: Rc<SpecialForms>,
     scope: ScopeRef,
     scope_state: ScopeState,
-    value: Value,
+    given_value: Value,
 ) -> Result<Value, String> {
-    Ok(match &*value {
-        DynType::Pair(_) => calculate_call(special_forms, scope, scope_state, value)?,
+    Ok(match &*given_value {
+        DynType::Pair(_) => calculate_call(special_forms, scope, scope_state, given_value)?,
         DynType::Symbol(symbol) => scope.borrow().variable(&symbol)?,
-        DynType::Quoted(value) => value.clone(),
-        _ => value,
+        DynType::Quoted(quoted) => match &**quoted {
+            DynType::Pair(pair) => rebuild_list_with_calculation(special_forms, scope, pair)?,
+            _ => return Err(format!("Only pair could be quoted"))
+        },
+        _ => given_value,
     })
 }

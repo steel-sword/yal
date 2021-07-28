@@ -1,5 +1,5 @@
 const ALLOWED_SYMBOL_BEGIN: &str =
-    "abcdefghijklmnopqrstuvwxyzABCEDFGHIJKLMNOPQRSTUVWXYZ_+-*/!@$%^&*<>?=";
+    "abcdefghijklmnopqrstuvwxyzABCEDFGHIJKLMNOPQRSTUVWXYZ_+-*/!@$%^&*<>?=:";
 
 const ALLOWED_SYNTAX_SYMBOLS: &str = "()";
 

@@ -1,4 +1,7 @@
-use std::{collections::HashMap, fmt::{Debug, Display}, rc::Rc};
+use std::{
+    fmt::{Debug, Display},
+    rc::Rc,
+};
 
 pub type Value = Rc<DynType>;
 
@@ -12,16 +15,104 @@ pub struct DotPair {
     pub right: Value,
 }
 
-impl DotPair {
-    pub fn to_value(self) -> Value {
-        value(DynType::Pair(self))
+
+impl Display for DotPair {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut buffer = String::new();
+        buffer.push_str(format!("({}", self.left).as_str());
+        let mut list = List::new(self.right.clone());
+        while let ListItem::Middle(value) = list.next() {
+            buffer.push_str(format!(" {}", value).as_str());
+        }
+        match list.next() {
+            ListItem::Last(v) => buffer.push_str(format!(" . {})", v).as_str()) ,
+            ListItem::End => buffer.push(')'),
+            ListItem::Middle(_) => unreachable!(),
+        }
+        
+        write!(f, "{}", buffer)
     }
 }
 
+
+
+#[derive(Debug)]
 pub struct StructType {
     pub name: String,
     pub fields: Vec<String> // field name and its index
 }
+
+impl Display for StructType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut string = String::from("(record ");
+
+        string.push_str(self.name.as_str());
+        string.push_str(" (");
+
+        let mut fields = vec![];
+        for field_name in &self.fields {
+            fields.push(field_name.clone());
+        }
+        string.push_str(fields.join(" ").as_str());
+        string.push_str("))");
+
+        write!(f, "{}", string)
+    }
+}
+
+
+#[derive(Debug, Clone)]
+pub struct Struct {
+    pub struct_type: Rc<StructType>,
+    pub data: Value,
+}
+
+impl Struct {
+    pub fn new(struct_type: Rc<StructType>, data: Value) -> Result<Self, String> {
+        let mut list = List::new(data.clone());
+
+        for _ in &*struct_type.fields {
+            list.next().to_middle()?;
+        }
+        list.next().to_end()?;
+        Ok(Self { struct_type, data })
+    }
+
+    pub fn get_field(self, required_field: String) -> Result<Value, String> {
+        let mut fields = List::new(self.data);
+
+        for name in &(&*self.struct_type).fields {
+            let item = fields.next().to_middle()?;
+            if name.eq(&required_field)  {
+                return Ok(item);
+            }
+        }
+
+        Err("Nothing was found".to_string())
+    }
+}
+
+impl Display for Struct {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut list = List::new(self.data.clone());
+
+        let mut string = String::from('(');
+        string.push_str(self.struct_type.name.as_str());
+
+        string.push_str(" (");
+        for field_name in &self.struct_type.fields {
+            let value = list.next().to_middle();
+            if let Ok(v) = value {
+                string.push_str(format!("({} {}) ", field_name, v).as_str());
+            } else {
+                string.push_str(format!("({} ??) ", field_name).as_str())
+            }
+            string.push_str("))")
+        }
+        write!(f, "{}", string)
+    }
+}
+
 
 pub enum DynType {
     Nil,
@@ -32,7 +123,7 @@ pub enum DynType {
     Pair(DotPair),
     Closure(Rc<dyn Fn(Value) -> Result<Value, String>>),
     StructDeclare(Rc<StructType>),
-    Struct(Rc<StructType>, Value),
+    Struct(Struct),
 }
 
 impl DynType {
@@ -60,9 +151,9 @@ impl DynType {
         }
     }
 
-    pub fn to_struct(&self) -> Result<(Rc<StructType>, Value), String> {
-        if let DynType::Struct(struct_type, value) = self {
-            Ok((struct_type.clone(), value.clone()))
+    pub fn to_struct(&self) -> Result<Struct, String> {
+        if let DynType::Struct(value) = self {
+            Ok(value.clone())
         } else {
             Err(format!("Expected Record, given, {}", &*self))
         }
@@ -85,45 +176,11 @@ impl DynType {
     }
 }
 
-fn struct_declare_to_string(type_data: &StructType) -> String {
-    let mut string = String::from("(record ");
-
-    string.push_str(type_data.name.as_str());
-    string.push_str(" (");
-
-    let mut fields = vec![];
-    for field_name in &*type_data.fields {
-        fields.push(field_name.clone());
-    }
-    string.push_str(fields.join(" ").as_str());
-    string.push_str("))");
-    string
-}
-
-fn struct_to_string(type_data: &StructType, data: Value) -> String {
-    let mut list = List::new(data);
-
-    let mut string = String::from('(');
-    string.push_str(type_data.name.as_str());
-
-    string.push_str(" (");
-    for field_name in &*type_data.fields {
-        let value = list.next().to_middle();
-        if let Ok(v) = value {
-            string.push_str(format!("({} {}) ", field_name, v).as_str());
-        } else {
-            string.push_str(format!("({} ??) ", field_name).as_str())
-        }
-        string.push_str("))")
-    }
-    string
-}
-
 impl Debug for DynType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
+        match &self {
             DynType::Nil => write!(f, "nil"),
-            DynType::Number(number) => write!(f, "Number({})", number),
+            DynType::Number(number) => write!(f, "Number({})", *number),
             DynType::Str(string) => write!(f, "Str(\"{}\")", string),
             DynType::Symbol(symbol) => write!(f, "Symbol({})", symbol),
             DynType::Quoted(value) => write!(f, "Quoted({})", value),
@@ -133,8 +190,17 @@ impl Debug for DynType {
                 .field("right", &pair.right)
                 .finish(),
             DynType::Closure(_) => write!(f, "<Closure>"),
-            DynType::StructDeclare(struct_declare) => write!(f, "<Record: {}>", struct_declare_to_string(struct_declare)),
-            DynType::Struct(type_data, data) => write!(f, "{}", struct_to_string(type_data, data.clone())),
+            DynType::StructDeclare(struct_declare) => f
+                .debug_struct("StructType")
+                .field("name", &struct_declare.name)
+                .field("fields", &struct_declare.fields)
+                .finish(),
+            &DynType::Struct(struct_value) => f
+                .debug_struct("Struct")
+                .field("struct_type", &struct_value.struct_type)
+                .field("data", &struct_value.data)
+                .finish()
+            ,
         }
     }
 }
@@ -147,23 +213,10 @@ impl Display for DynType {
             Self::Str(string) => string.clone(),
             Self::Symbol(symbol) => symbol.clone(),
             Self::Quoted(quoted) => format!("'{}", quoted),
-            Self::Pair(pair) => {
-                let mut buffer = String::new();
-                buffer.push_str(format!("({}", pair.left).as_str());
-                let mut list = List::new(pair.right.clone());
-                while let ListItem::Middle(value) = list.next() {
-                    buffer.push_str(format!(" {}", value).as_str());
-                }
-                match list.next() {
-                    ListItem::Last(v) => buffer.push_str(format!(" . {})", v).as_str()) ,
-                    ListItem::End => buffer.push(')'),
-                    ListItem::Middle(_) => unreachable!(),
-                }
-                buffer
-            },
+            Self::Pair(pair) => pair.to_string(),
             Self::Closure(_) => String::from("<Closure>"),
-            Self::StructDeclare(struct_declare) => struct_declare_to_string(struct_declare),
-            Self::Struct(type_data, data) => struct_to_string(type_data, data.clone()),
+            Self::StructDeclare(struct_declare) => struct_declare.to_string(),
+            Self::Struct(struct_value) => struct_value.to_string(),
         };
         write!(f, "{}", string)
     }

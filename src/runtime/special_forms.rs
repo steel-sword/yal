@@ -74,6 +74,26 @@ fn def_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Re
     Ok(value(DynType::Nil))
 }
 
+fn lambda_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, String>{
+    let mut list = List::new(args);
+
+    let arguments = list.next().to_middle()?;
+    let mut body = List::new(list.next().to_middle()?);
+    list.next().to_end()?;
+
+    let mut statements = vec![];
+    while let ListItem::Middle(value) = body.next() {
+        statements.push(value);
+    }
+    body.next().to_end()?;
+
+    let function = CustomFunction::new("lambda".to_string(), statements, scope.clone(), arguments);
+
+    Ok(value(DynType::Closure(
+        Rc::new(move |args| { function.call(special_forms.clone(), args) })
+    )))
+}
+
 fn struct_form(_: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, String> {
     let mut list = List::new(args);
     let name = list.next().to_middle()?.to_symbol()?;
@@ -96,7 +116,7 @@ fn struct_form(_: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Valu
 fn get_field_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, String> {
     let mut list = List::new(args);
     let value_expr = list.next().to_middle()?;
-    let requlred_field = list.next().to_middle()?.to_symbol()?;
+    let required_field = list.next().to_middle()?.to_symbol()?;
     list.next().to_end()?;
 
     let new_var = calculate(
@@ -106,18 +126,7 @@ fn get_field_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value)
         value_expr,
     )?;
 
-    let (struct_type, value) = new_var.to_struct()?;
-    let field_names = &*struct_type.fields;
-    let mut fields = List::new(value);
-
-    for name in field_names {
-        let item = fields.next().to_middle()?;
-        if name.eq(&requlred_field)  {
-            return Ok(item);
-        }
-    }
-
-    Err("Nothing was found".to_string())
+    new_var.to_struct()?.get_field(required_field)
 }
 
 fn if_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, String> {
@@ -189,6 +198,16 @@ pub fn all_special_forms() -> Rc<SpecialForms> {
             name: def_form_name,
             calculator: Rc::new(|special_forms, scope, args| def_form(special_forms, scope, args)),
             possible_scope_state: ScopeState::Local,
+        },
+    );
+
+    let lambda_form_name = "lambda";
+    special_forms.insert(
+        lambda_form_name.to_string(),
+        SpecialForm {
+            name: lambda_form_name,
+            calculator: Rc::new(|special_forms, scope, args| lambda_form(special_forms, scope, args)),
+            possible_scope_state: ScopeState::Expression,
         },
     );
 

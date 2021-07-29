@@ -4,18 +4,13 @@ use std::{
     rc::Rc,
 };
 
-use crate::types::{value, DotPair, DynType, List, ListItem, Value};
+use crate::types::{DotPair, DynType, List, ListItem, Struct, Value, value};
 
 fn lang_new(args: Value) -> Result<Value, String> {
     let mut list = List::new(args);
-    let record_type = list.next().to_middle()?.to_struct_declare()?;
+    let struct_type = list.next().to_middle()?.to_struct_declare()?;
     let rest = list.current_value.clone();
-    for _ in &*record_type.fields {
-        list.next().to_middle()?;
-    }
-    list.next().to_end()?;
-
-    Ok(value(DynType::Struct(record_type, rest)))
+    Ok(value(DynType::Struct(Struct::new(struct_type, rest)?)))
 }
 
 fn lang_apply(args: Value) -> Result<Value, String> {

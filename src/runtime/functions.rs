@@ -122,6 +122,99 @@ fn lang_not_equals(args: Value) -> Result<Value, String> {
     Ok(value(DynType::Number(1.0)))
 }
 
+fn lang_greater_than(args: Value) -> Result<Value, String> {
+    let mut list = List::new(args);
+    let mut previous = list.next().to_middle()?;
+    while let ListItem::Middle(current) = list.next() {
+        match previous.partial_cmp(&current) {
+            Some(cmp) => match cmp {
+                std::cmp::Ordering::Less => return Ok(value(DynType::Nil)),
+                std::cmp::Ordering::Equal => return Ok(value(DynType::Nil)),
+                std::cmp::Ordering::Greater => {},
+            },
+            None => return Ok(value(DynType::Nil)),
+        }
+
+        previous = current;
+    }
+    list.next().to_end()?;
+    Ok(value(DynType::Number(1.0)))
+}
+
+fn lang_greater_than_or_equals(args: Value) -> Result<Value, String> {
+    let mut list = List::new(args);
+    let mut previous = list.next().to_middle()?;
+    while let ListItem::Middle(current) = list.next() {
+        match previous.partial_cmp(&current) {
+            Some(cmp) => match cmp {
+                std::cmp::Ordering::Less => return Ok(value(DynType::Nil)),
+                std::cmp::Ordering::Equal => {},
+                std::cmp::Ordering::Greater => {},
+            },
+            None => return Ok(value(DynType::Nil)),
+        }
+
+        previous = current;
+    }
+    list.next().to_end()?;
+    Ok(value(DynType::Number(1.0)))
+}
+
+fn lang_less_than(args: Value) -> Result<Value, String> {
+    let mut list = List::new(args);
+    let mut previous = list.next().to_middle()?;
+    while let ListItem::Middle(current) = list.next() {
+        match previous.partial_cmp(&current) {
+            Some(cmp) => match cmp {
+                std::cmp::Ordering::Less => {},
+                std::cmp::Ordering::Equal => return Ok(value(DynType::Nil)),
+                std::cmp::Ordering::Greater => return Ok(value(DynType::Nil)),
+            },
+            None => return Ok(value(DynType::Nil)),
+        }
+
+        previous = current;
+    }
+    list.next().to_end()?;
+    Ok(value(DynType::Number(1.0)))
+}
+
+fn lang_less_than_or_equals(args: Value) -> Result<Value, String> {
+    let mut list = List::new(args);
+    let mut previous = list.next().to_middle()?;
+    while let ListItem::Middle(current) = list.next() {
+        match previous.partial_cmp(&current) {
+            Some(cmp) => match cmp {
+                std::cmp::Ordering::Less => {},
+                std::cmp::Ordering::Equal => {},
+                std::cmp::Ordering::Greater => return Ok(value(DynType::Nil)),
+            },
+            None => return Ok(value(DynType::Nil)),
+        }
+
+        previous = current;
+    }
+    list.next().to_end()?;
+    Ok(value(DynType::Number(1.0)))
+}
+
+fn lang_cmp(args: Value) -> Result<Value, String> {
+    let mut list = List::new(args);
+    let first = list.next().to_middle()?;
+    let second = list.next().to_middle()?;
+    list.next().to_end()?;
+
+    match first.partial_cmp(&second) {
+        Some(cmp) => match cmp {
+            std::cmp::Ordering::Less => Ok(value(DynType::Number(-1.0))),
+            std::cmp::Ordering::Equal => Ok(value(DynType::Number(0.0))),
+            std::cmp::Ordering::Greater => Ok(value(DynType::Number(1.0))),
+        },
+        None => Ok(value(DynType::Nil)),
+    }
+}
+
+
 fn lang_cons(args: Value) -> Result<Value, String> {
     let mut list = List::new(args);
     let left = list.next().to_middle()?;
@@ -260,8 +353,34 @@ pub fn all_base_functions() -> HashMap<String, Value> {
         "!=".to_string(),
         value(DynType::Closure(Rc::new(|args| lang_not_equals(args)))),
     );
+
     functions.insert(
-        "cons".to_string(),
+        ">".to_string(),
+        value(DynType::Closure(Rc::new(|args| lang_greater_than(args)))),
+    );
+
+    functions.insert(
+        ">=".to_string(),
+        value(DynType::Closure(Rc::new(|args| lang_greater_than_or_equals(args)))),
+    );
+
+    functions.insert(
+        "<".to_string(),
+        value(DynType::Closure(Rc::new(|args| lang_less_than(args)))),
+    );
+
+    functions.insert(
+        "<=".to_string(),
+        value(DynType::Closure(Rc::new(|args| lang_less_than_or_equals(args)))),
+    );
+
+    functions.insert(
+        "cmp".to_string(),
+        value(DynType::Closure(Rc::new(|args| lang_cmp(args)))),
+    );
+
+    functions.insert(
+        "pair".to_string(),
         value(DynType::Closure(Rc::new(|args| lang_cons(args)))),
     );
     functions.insert(

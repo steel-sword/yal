@@ -240,6 +240,16 @@ impl PartialEq for DynType {
     }
 }
 
+impl PartialOrd for DynType {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match (self, other) {
+            (DynType::Number(x), DynType::Number(y)) => x.partial_cmp(y),
+            (DynType::Str(x), DynType::Str(y)) => x.partial_cmp(y),
+            _ => None
+        }
+    }
+}
+
 pub enum ListItem {
     Middle(Value),
     Last(Value),

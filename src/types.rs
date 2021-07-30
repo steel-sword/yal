@@ -268,17 +268,6 @@ impl ListItem {
         }
     }
 
-    pub fn to_last(self) -> Result<Value, String> {
-        match self {
-            ListItem::Last(value) => Ok(value),
-            ListItem::Middle(value) => Err(format!(
-                "unexpected part of list. Most be last value of list, found {}",
-                value
-            )),
-            ListItem::End => Err(format!("Unexpected end of list")),
-        }
-    }
-
     pub fn to_end(self) -> Result<(), String> {
         match self {
             ListItem::End => Ok(()),

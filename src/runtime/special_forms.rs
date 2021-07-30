@@ -49,8 +49,8 @@ fn let_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Re
 fn def_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, String>{
     let mut list = List::new(args);
 
-    let name = list.next().to_middle()?.to_symbol()?;
-    let arguments = list.next().to_middle()?;
+    let mut arguments = List::new(list.next().to_middle()?);
+    let name = arguments.next().to_middle()?.to_symbol()?;
     let mut body = List::new(list.next().to_middle()?);
     list.next().to_end()?;
 
@@ -60,7 +60,7 @@ fn def_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Re
     }
     body.next().to_end()?;
 
-    let function = CustomFunction::new(name.clone(), statements, scope.clone(), arguments);
+    let function = CustomFunction::new(statements, scope.clone(), arguments.current_value);
     
     scope
         .borrow_mut()
@@ -87,7 +87,7 @@ fn lambda_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) ->
     }
     body.next().to_end()?;
 
-    let function = CustomFunction::new("lambda".to_string(), statements, scope.clone(), arguments);
+    let function = CustomFunction::new(statements, scope.clone(), arguments);
 
     Ok(value(DynType::Closure(
         Rc::new(move |args| { function.call(special_forms.clone(), args) })

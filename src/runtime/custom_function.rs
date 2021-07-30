@@ -1,19 +1,18 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::types::{List, ListItem, Value};
+use crate::types::{DotPair, DynType, List, ListItem, Value, value};
 
 use super::{calculators::calculate, scope::{Scope, ScopeRef}, special_forms::SpecialForms};
 
 pub struct CustomFunction {
-    name: String,
     statements: Vec<Value>,
     outer_scope: ScopeRef,
     arg_symbols: Value,
 }
 
 impl CustomFunction {
-    pub fn new(name: String, statements: Vec<Value>, outer_scope: ScopeRef, arg_symbols: Value) -> Self {
-        Self { name, statements, outer_scope, arg_symbols }
+    pub fn new(statements: Vec<Value>, outer_scope: ScopeRef, arg_symbols: Value) -> Self {
+        Self { statements, outer_scope, arg_symbols }
     }
 
     pub fn call(&self, special_forms: Rc<SpecialForms>, args: Value) -> Result<Value, String> {
@@ -39,7 +38,10 @@ impl CustomFunction {
         match (defined_args.next(), got_args.next()) {
             (ListItem::Last(last), ListItem::Middle(got))
             | (ListItem::Last(last), ListItem::Last(got)) => {
-                scope.borrow_mut().define_variable(last.to_symbol()?, got)?;
+                scope.borrow_mut().define_variable(
+                    last.to_symbol()?,
+                    value(DynType::Pair(DotPair { left: got, right: got_args.current_value }))
+                )?;
             }
             (ListItem::End, ListItem::End) => {},
             _ => return Err(format!("Arguments count error, given more or less"))

@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::types::{DotPair, DynType, List, ListItem, Value};
+use crate::types::{dot_pair::DotPair, DynType, list::{List, ListItem}, value::Value};
 
 use super::{calculators::calculate, scope::{Scope, ScopeRef}, special_forms::SpecialForms};
 

@@ -4,7 +4,7 @@ use std::{
     rc::Rc,
 };
 
-use crate::types::{DotPair, DynType, List, ListItem, Struct, Value};
+use crate::types::{dot_pair::DotPair, DynType, list::{List, ListItem}, Struct, value::Value};
 
 fn lang_new(args: Value) -> Result<Value, String> {
     let mut list = List::new(args);

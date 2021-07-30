@@ -4,7 +4,7 @@ pub mod functions;
 mod scope;
 pub mod special_forms;
 
-use crate::types::Value;
+use crate::types::value::Value;
 use std::cell::RefCell;
 use std::rc::Rc;
 

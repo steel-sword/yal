@@ -1,5 +1,6 @@
 use crate::lexer::{Lexeme, Token};
-use crate::types::{Value, DotPair};
+use crate::types::value::Value;
+use crate::types::{dot_pair::DotPair};
 use crate::types::DynType;
 
 fn is_next(lexeme: Option<Lexeme>) -> Result<Lexeme, String> {

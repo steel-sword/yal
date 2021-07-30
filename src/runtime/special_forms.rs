@@ -1,6 +1,9 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{runtime::{custom_function::CustomFunction, scope::{ScopeRef, ScopeState}}, types::{DynType, List, ListItem, StructType, Value}};
+use crate::{
+    runtime::{custom_function::CustomFunction, scope::{ScopeRef, ScopeState}},
+    types::{DynType, list::{List, ListItem}, StructType, value::Value}
+};
 
 use super::calculators::calculate;
 

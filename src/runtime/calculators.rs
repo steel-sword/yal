@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::types::{DotPair, DynType, Value};
+use crate::types::{dot_pair::DotPair, DynType, value::Value};
 
 use super::{
     functions::all_base_functions,

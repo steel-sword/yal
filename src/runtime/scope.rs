@@ -1,6 +1,6 @@
 use std::{cell::RefCell, cmp::Ordering, collections::HashMap, rc::Rc};
 
-use crate::types::Value;
+use crate::types::value::Value;
 
 pub struct Scope {
     pub variables: HashMap<String, Value>,

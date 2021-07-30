@@ -1,55 +1,13 @@
+pub mod value;
+pub mod dot_pair;
+pub mod list;
+
 use std::{
     fmt::{Debug, Display},
     rc::Rc,
 };
 
-#[derive(Clone)]
-pub struct Value {
-    pub content: Rc<DynType>,
-    pub position: Option<(u32, u16)>,
-}
-
-impl Value {
-    pub fn new(content: DynType, position: Option<(u32, u16)>) -> Self {
-        Self { content: Rc::new(content), position }
-    }
-}
-
-impl Debug for Value {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Debug::fmt(&self.content, f)?;
-        if let Some(position) = self.position {
-            write!(f, " [{}, {}]", position.0, position.1)
-        } else {
-            write!(f, " []")
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct DotPair {
-    pub left: Value,
-    pub right: Value,
-}
-
-
-impl Display for DotPair {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut buffer = String::new();
-        buffer.push_str(format!("({}", self.left.content).as_str());
-        let mut list = List::new(self.right.clone());
-        while let ListItem::Middle(value) = list.next() {
-            buffer.push_str(format!(" {}", value.content).as_str());
-        }
-        match list.next() {
-            ListItem::Last(v) => buffer.push_str(format!(" . {})", v.content).as_str()) ,
-            ListItem::End => buffer.push(')'),
-            ListItem::Middle(_) => unreachable!(),
-        }
-        
-        write!(f, "{}", buffer)
-    }
-}
+use self::{dot_pair::DotPair, list::List, value::Value};
 
 
 
@@ -263,57 +221,6 @@ impl PartialOrd for DynType {
             (DynType::Number(x), DynType::Number(y)) => x.partial_cmp(y),
             (DynType::Str(x), DynType::Str(y)) => x.partial_cmp(y),
             _ => None
-        }
-    }
-}
-
-pub enum ListItem {
-    Middle(Value),
-    Last(Value),
-    End,
-}
-
-impl ListItem {
-    pub fn to_middle(self) -> Result<Value, String> {
-        match self {
-            ListItem::Middle(value) => Ok(value),
-            ListItem::Last(value) => Err(format!(
-                "unexpected part of list. Most be pair, found {}",
-                value.content
-            )),
-            ListItem::End => Err(format!("Unexpected end of list")),
-        }
-    }
-
-    pub fn to_end(self) -> Result<(), String> {
-        match self {
-            ListItem::End => Ok(()),
-            ListItem::Middle(value) => Err(format!("Expected end of list, found {}", value.content)),
-            ListItem::Last(value) => Err(format!("Expected end of list, found {}", value.content)),
-        }
-    }
-}
-
-pub struct List {
-    pub current_value: Value,
-}
-
-impl List {
-    pub fn new(start_value: Value) -> List {
-        List {
-            current_value: start_value,
-        }
-    }
-
-    pub fn next(&mut self) -> ListItem {
-        let current_value = self.current_value.clone();
-        match &*current_value.content {
-            DynType::Nil => ListItem::End,
-            DynType::Pair(dot_pair) => {
-                self.current_value = dot_pair.right.clone();
-                ListItem::Middle(dot_pair.left.clone())
-            }
-            _ => ListItem::Last(current_value),
         }
     }
 }

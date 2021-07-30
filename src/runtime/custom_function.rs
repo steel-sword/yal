@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::types::{DotPair, DynType, List, ListItem, Value, value};
+use crate::types::{DotPair, DynType, List, ListItem, Value};
 
 use super::{calculators::calculate, scope::{Scope, ScopeRef}, special_forms::SpecialForms};
 
@@ -33,14 +33,14 @@ impl CustomFunction {
 
         while let ListItem::Middle(value) = defined_args.next() {
             let next = got_args.next().to_middle()?;
-            scope.borrow_mut().define_variable(value.to_symbol()?, next)?;
+            scope.borrow_mut().define_variable(value.content.to_symbol()?, next)?;
         }
         match (defined_args.next(), got_args.next()) {
             (ListItem::Last(last), ListItem::Middle(got))
             | (ListItem::Last(last), ListItem::Last(got)) => {
                 scope.borrow_mut().define_variable(
-                    last.to_symbol()?,
-                    value(DynType::Pair(DotPair { left: got, right: got_args.current_value }))
+                    last.content.to_symbol()?,
+                   Value::new(DynType::Pair(DotPair { left: got, right: got_args.current_value }), None)
                 )?;
             }
             (ListItem::End, ListItem::End) => {},

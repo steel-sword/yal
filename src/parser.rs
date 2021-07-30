@@ -1,6 +1,6 @@
 use crate::lexer::{Lexeme, Token};
-use crate::types::{value, DotPair};
-use crate::types::{DynType, Value};
+use crate::types::{Value, DotPair};
+use crate::types::DynType;
 
 fn is_next(lexeme: Option<Lexeme>) -> Result<Lexeme, String> {
     match lexeme {
@@ -34,9 +34,12 @@ impl<'a> Parser<'a> {
         self.current_lexeme.clone()
     }
 
-    fn parse_list(&mut self) -> Result<Value, String> {
+    fn parse_list(&mut self) -> Result<DynType, String> {
+        let Lexeme { line, line_char, .. } = self.current_lexeme.clone().unwrap();
+        let position = Some((line, line_char));
+
         let left = match is_next(self.current_lexeme.clone())?.token {
-            Token::CloseBracket => return Ok(value(DynType::Nil)),
+            Token::CloseBracket => return Ok(DynType::Nil),
             _ => self.parse_value()?,
         };
 
@@ -52,10 +55,10 @@ impl<'a> Parser<'a> {
                 }
                 result
             }
-            Token::CloseBracket => value(DynType::Nil),
-            _ => self.parse_list()?,
+            Token::CloseBracket => Value::new(DynType::Nil, position),
+            _ => Value::new(self.parse_list()?, None),
         };
-        Ok(value(DynType::Pair(DotPair { left, right })))
+        Ok(DynType::Pair(DotPair { left, right }))
     }
 
     fn parse_value(&mut self) -> Result<Value, String> {
@@ -63,35 +66,34 @@ impl<'a> Parser<'a> {
             Some(lexeme) => lexeme,
             None => return Err(format!("Unexpected end of file during value parsing")),
         };
+        let position = Some((current.line, current.line_char));
 
         // expression can begin from
-        Ok(value(match &current.token {
-            Token::Quote => {
-                self.next();
-                DynType::Quoted(self.parse_value()?)
-            }
-            Token::OpenBracket => {
-                self.next();
-                return self.parse_list();
-            }
-            Token::Number(number) => DynType::Number(*number),
-            Token::Str(string) => DynType::Str(string.clone()),
-            Token::Symbol(symbol) => DynType::Symbol(symbol.clone()),
+        Ok(Value::new(
+            match &current.token {
+                Token::Quote => {
+                    self.next();
+                    DynType::Quoted(self.parse_value()?)
+                }
+                Token::OpenBracket => {
+                    self.next();
+                    self.parse_list()?
+                }
+                Token::Number(number) => DynType::Number(*number),
+                Token::Str(string) => DynType::Str(string.clone()),
+                Token::Symbol(symbol) => DynType::Symbol(symbol.clone()),
 
-            // dots, close brackets, etc. are wrong begin tokens
-            _ => unexpected_token(&current)?,
-        }))
+                // dots, close brackets, etc. are wrong begin tokens
+                _ => unexpected_token(&current)?,
+            },
+            position
+        ))
     }
 
     fn parse(&mut self) -> Result<Vec<Value>, String> {
         let mut lists = Vec::new();
-        while let Some(lexeme) = self.next() {
-            if let Token::OpenBracket = lexeme.token {
-                self.next();
-                lists.push(self.parse_list()?);
-            } else {
-                lists.push(self.parse_value()?);
-            };
+        while let Some(_) = self.next() {
+            lists.push(self.parse_value()?);
         }
 
         Ok(lists)

@@ -3,10 +3,27 @@ use std::{
     rc::Rc,
 };
 
-pub type Value = Rc<DynType>;
+#[derive(Clone)]
+pub struct Value {
+    pub content: Rc<DynType>,
+    pub position: Option<(u32, u16)>,
+}
 
-pub fn value(value: DynType) -> Value {
-    Rc::new(value)
+impl Value {
+    pub fn new(content: DynType, position: Option<(u32, u16)>) -> Self {
+        Self { content: Rc::new(content), position }
+    }
+}
+
+impl Debug for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Debug::fmt(&self.content, f)?;
+        if let Some(position) = self.position {
+            write!(f, " [{}, {}]", position.0, position.1)
+        } else {
+            write!(f, " []")
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -19,13 +36,13 @@ pub struct DotPair {
 impl Display for DotPair {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut buffer = String::new();
-        buffer.push_str(format!("({}", self.left).as_str());
+        buffer.push_str(format!("({}", self.left.content).as_str());
         let mut list = List::new(self.right.clone());
         while let ListItem::Middle(value) = list.next() {
-            buffer.push_str(format!(" {}", value).as_str());
+            buffer.push_str(format!(" {}", value.content).as_str());
         }
         match list.next() {
-            ListItem::Last(v) => buffer.push_str(format!(" . {})", v).as_str()) ,
+            ListItem::Last(v) => buffer.push_str(format!(" . {})", v.content).as_str()) ,
             ListItem::End => buffer.push(')'),
             ListItem::Middle(_) => unreachable!(),
         }
@@ -103,7 +120,7 @@ impl Display for Struct {
         for field_name in &self.struct_type.fields {
             let value = list.next().to_middle();
             if let Ok(v) = value {
-                string.push_str(format!("({} {}) ", field_name, v).as_str());
+                string.push_str(format!("({} {}) ", field_name, v.content).as_str());
             } else {
                 string.push_str(format!("({} ??) ", field_name).as_str())
             }
@@ -183,7 +200,7 @@ impl Debug for DynType {
             DynType::Number(number) => write!(f, "Number({})", *number),
             DynType::Str(string) => write!(f, "Str(\"{}\")", string),
             DynType::Symbol(symbol) => write!(f, "Symbol({})", symbol),
-            DynType::Quoted(value) => write!(f, "Quoted({})", value),
+            DynType::Quoted(value) => write!(f, "Quoted({})", value.content),
             DynType::Pair(pair) => f
                 .debug_struct("Pair")
                 .field("left", &pair.left)
@@ -212,7 +229,7 @@ impl Display for DynType {
             Self::Number(number) => number.to_string(),
             Self::Str(string) => string.clone(),
             Self::Symbol(symbol) => symbol.clone(),
-            Self::Quoted(quoted) => format!("'{}", quoted),
+            Self::Quoted(quoted) => format!("'{}", quoted.content),
             Self::Pair(pair) => pair.to_string(),
             Self::Closure(_) => String::from("<Closure>"),
             Self::StructDeclare(struct_declare) => struct_declare.to_string(),
@@ -227,9 +244,9 @@ impl PartialEq for DynType {
         match (self, other) {
             (DynType::Number(num1), DynType::Number(num2)) => *num1 == *num2,
             (DynType::Str(string1), DynType::Str(string2)) => *string1 == *string2,
-            (DynType::Quoted(value1), DynType::Quoted(value2)) => value1 == value2,
+            (DynType::Quoted(value1), DynType::Quoted(value2)) => value1.content == value2.content,
             (DynType::Pair(pair1), DynType::Pair(pair2)) => {
-                pair1.left == pair2.left && pair1.right == pair2.right
+                pair1.left.content == pair2.left.content && pair1.right.content == pair2.right.content
             }
 
             (DynType::Nil, DynType::Nil) => true,
@@ -262,7 +279,7 @@ impl ListItem {
             ListItem::Middle(value) => Ok(value),
             ListItem::Last(value) => Err(format!(
                 "unexpected part of list. Most be pair, found {}",
-                value
+                value.content
             )),
             ListItem::End => Err(format!("Unexpected end of list")),
         }
@@ -271,8 +288,8 @@ impl ListItem {
     pub fn to_end(self) -> Result<(), String> {
         match self {
             ListItem::End => Ok(()),
-            ListItem::Middle(value) => Err(format!("Expected end of list, found {}", value)),
-            ListItem::Last(value) => Err(format!("Expected end of list, found {}", value)),
+            ListItem::Middle(value) => Err(format!("Expected end of list, found {}", value.content)),
+            ListItem::Last(value) => Err(format!("Expected end of list, found {}", value.content)),
         }
     }
 }
@@ -290,7 +307,7 @@ impl List {
 
     pub fn next(&mut self) -> ListItem {
         let current_value = self.current_value.clone();
-        match &*current_value {
+        match &*current_value.content {
             DynType::Nil => ListItem::End,
             DynType::Pair(dot_pair) => {
                 self.current_value = dot_pair.right.clone();

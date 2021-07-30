@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{runtime::{custom_function::CustomFunction, scope::{ScopeRef, ScopeState}}, types::{DynType, List, ListItem, StructType, Value, value}};
+use crate::{runtime::{custom_function::CustomFunction, scope::{ScopeRef, ScopeState}}, types::{DynType, List, ListItem, StructType, Value}};
 
 use super::calculators::calculate;
 
@@ -33,7 +33,7 @@ impl SpecialForm {
 
 fn let_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, String> {
     let mut list = List::new(args);
-    let name = list.next().to_middle()?.to_symbol()?;
+    let name = list.next().to_middle()?.content.to_symbol()?;
     let value_expr = list.next().to_middle()?;
     list.next().to_end()?;
     let new_var = calculate(
@@ -50,7 +50,7 @@ fn def_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Re
     let mut list = List::new(args);
 
     let mut arguments = List::new(list.next().to_middle()?);
-    let name = arguments.next().to_middle()?.to_symbol()?;
+    let name = arguments.next().to_middle()?.content.to_symbol()?;
     let mut body = List::new(list.next().to_middle()?);
     list.next().to_end()?;
 
@@ -66,12 +66,15 @@ fn def_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Re
         .borrow_mut()
         .define_variable(
             name,
-            value(DynType::Closure(
-                Rc::new(move |args| { function.call(special_forms.clone(), args) })
-            ))
+           Value::new(
+                DynType::Closure(
+                    Rc::new(move |args| { function.call(special_forms.clone(), args) })
+                ),
+                None
+            )
         )?;
 
-    Ok(value(DynType::Nil))
+    Ok(Value::new(DynType::Nil, None))
 }
 
 fn lambda_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, String>{
@@ -89,34 +92,37 @@ fn lambda_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) ->
 
     let function = CustomFunction::new(statements, scope.clone(), arguments);
 
-    Ok(value(DynType::Closure(
-        Rc::new(move |args| { function.call(special_forms.clone(), args) })
-    )))
+    Ok(Value::new(
+        DynType::Closure(
+            Rc::new(move |args| { function.call(special_forms.clone(), args) })
+        ),
+        None
+    ))
 }
 
 fn struct_form(_: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, String> {
     let mut list = List::new(args);
-    let name = list.next().to_middle()?.to_symbol()?;
+    let name = list.next().to_middle()?.content.to_symbol()?;
     let mut fields_list = List::new(list.next().to_middle()?);
     list.next().to_end()?;
 
     let mut fields = vec![];
     while let ListItem::Middle(field) = fields_list.next() {
-        fields.push(field.to_symbol()?)
+        fields.push(field.content.to_symbol()?)
     }
     scope
         .borrow_mut()
         .define_variable(
             name.clone(),
-            value(DynType::StructDeclare(Rc::new(StructType { name, fields })))
+           Value::new(DynType::StructDeclare(Rc::new(StructType { name, fields })), None)
         )?;
-    Ok(value(DynType::Nil))
+    Ok(Value::new(DynType::Nil, None))
 }
 
 fn get_field_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, String> {
     let mut list = List::new(args);
     let value_expr = list.next().to_middle()?;
-    let required_field = list.next().to_middle()?.to_symbol()?;
+    let required_field = list.next().to_middle()?.content.to_symbol()?;
     list.next().to_end()?;
 
     let new_var = calculate(
@@ -126,7 +132,7 @@ fn get_field_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value)
         value_expr,
     )?;
 
-    new_var.to_struct()?.get_field(required_field)
+    new_var.content.to_struct()?.get_field(required_field)
 }
 
 fn if_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, String> {
@@ -140,7 +146,7 @@ fn if_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Res
         scope.clone(),
         ScopeState::Expression,
         condition,
-    )? {
+    )?.content {
         calculate(special_forms, scope, ScopeState::Expression, else_body)
     } else {
         calculate(special_forms, scope, ScopeState::Expression, main_body)
@@ -155,11 +161,11 @@ fn and_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Re
             scope.clone(),
             ScopeState::Expression,
             parameter,
-        )? {
-            return Ok(value(DynType::Nil));
+        )?.content {
+            return Ok(Value::new(DynType::Nil, None));
         }
     }
-    Ok(value(DynType::Number(1.0)))
+    Ok(Value::new(DynType::Number(1.0), None))
 }
 
 fn or_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, String> {
@@ -170,12 +176,12 @@ fn or_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Res
             scope.clone(),
             ScopeState::Expression,
             parameter,
-        )? {
+        )?.content {
         } else {
-            return Ok(value(DynType::Number(1.0)));
+            return Ok(Value::new(DynType::Number(1.0), None));
         }
     }
-    Ok(value(DynType::Nil))
+    Ok(Value::new(DynType::Nil, None))
 }
 
 pub fn all_special_forms() -> Rc<SpecialForms> {

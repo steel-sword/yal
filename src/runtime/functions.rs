@@ -248,7 +248,7 @@ fn lang_cmp(args: Value) -> Result<Value, Exception> {
 }
 
 
-fn lang_cons(args: Value) -> Result<Value, Exception> {
+fn lang_pair(args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let left = list.next().to_middle()?;
     let right = list.next().to_middle()?;
@@ -331,8 +331,16 @@ fn lang_str(args: Value) -> Result<Value, Exception> {
 fn lang_split(args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let text = list.next().to_middle()?.content.to_string();
-    let pat = match list.next() {
-        ListItem::Middle(s) => (&*s.content).to_string(),
+
+    let mut splitted: Vec<String> = match list.next() {
+        ListItem::Middle(s) => text
+            .split(&(&*s.content).to_string())
+            .map(str::to_string).collect(),
+
+        ListItem::End => text
+            .split_whitespace()
+            .map(str::to_string).collect(),
+
         ListItem::Last(_) => return Err(Exception {
             thrown_object: Value::new(DynType::Str(
                 format!("Syntax Error")
@@ -340,15 +348,14 @@ fn lang_split(args: Value) -> Result<Value, Exception> {
             traceback: vec![],
             previous_exception: None
         }),
-        ListItem::End => " ".to_string(),
+        
     };
     list.next().to_end()?;
-    let mut splitted: Vec<_> = text.split(&pat).collect();
-    splitted.reverse();
 
-    let mut pair =Value::new(DynType::Nil, None);
+    splitted.reverse();
+    let mut pair = Value::new(DynType::Nil, None);
     for item in splitted {
-        pair =Value::new(
+        pair = Value::new(
             DynType::Pair(DotPair {
                 right: pair,
                 left:Value::new(DynType::Str(item.to_string()), None)
@@ -438,7 +445,7 @@ pub fn all_base_functions() -> HashMap<String, Value> {
 
     functions.insert(
         "pair".to_string(),
-       Value::new(DynType::Closure(Rc::new(|args| lang_cons(args))), None),
+       Value::new(DynType::Closure(Rc::new(|args| lang_pair(args))), None),
     );
     functions.insert(
         "left".to_string(),

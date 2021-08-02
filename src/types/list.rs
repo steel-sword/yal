@@ -69,4 +69,15 @@ impl List {
             _ => ListItem::Last(current_value),
         }
     }
+
+    pub fn peek(&self) -> ListItem {
+        let current_value = self.current_value.clone();
+        match &*current_value.content {
+            DynType::Nil => ListItem::End,
+            DynType::Pair(dot_pair) => {
+                ListItem::Middle(dot_pair.left.clone())
+            }
+            _ => ListItem::Last(current_value),
+        }
+    }
 }

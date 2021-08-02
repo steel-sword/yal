@@ -2,17 +2,17 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::types::{DynType, dot_pair::DotPair, exception::Exception, list::{List, ListItem}, value::Value};
 
-use super::{calculators::calculate, scope::{Scope, ScopeRef}, special_forms::SpecialForms};
+use super::{calculators::calculate, scope::{Scope, ScopeRef, ScopeState}, special_forms::SpecialForms};
 
 pub struct CustomFunction {
-    statements: Vec<Value>,
+    expression: Value,
     outer_scope: ScopeRef,
     arg_symbols: Value,
 }
 
 impl CustomFunction {
-    pub fn new(statements: Vec<Value>, outer_scope: ScopeRef, arg_symbols: Value) -> Self {
-        Self { statements, outer_scope, arg_symbols }
+    pub fn new(expression: Value, outer_scope: ScopeRef, arg_symbols: Value) -> Self {
+        Self { expression, outer_scope, arg_symbols }
     }
 
     pub fn call(&self, special_forms: Rc<SpecialForms>, args: Value) -> Result<Value, Exception> {
@@ -20,19 +20,7 @@ impl CustomFunction {
             Scope::new(Some(self.outer_scope.clone()))
         ));
         self.define_parameters_in_scope(scope.clone(), args)?;
-        let mut last = Err(Exception {
-            thrown_object: Value::new(DynType::Str(format!("Empty body")), None),
-            traceback: vec![],
-            previous_exception: None
-        });
-        for statement in self.statements.iter() {
-            let value = calculate(special_forms.clone(), scope.clone(), super::scope::ScopeState::Local, statement.clone());
-            if let Err(err) = value {
-                return Err(err);
-            }
-            last = value;
-        }
-        last
+        calculate(special_forms.clone(), scope, ScopeState::Expression, self.expression.clone())
     }
 
     fn define_parameters_in_scope(&self, scope: ScopeRef, args: Value) -> Result<(), Exception> {

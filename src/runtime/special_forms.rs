@@ -1,9 +1,6 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::{
-    runtime::{custom_function::CustomFunction, scope::{ScopeRef, ScopeState}},
-    types::{DynType, StructType, exception::Exception, list::{List, ListItem}, value::Value}
-};
+use crate::{runtime::{custom_function::CustomFunction, scope::{Scope, ScopeRef, ScopeState}}, types::{DynType, StructType, exception::Exception, list::{List, ListItem}, value::Value}};
 
 use super::calculators::calculate;
 
@@ -50,6 +47,28 @@ impl SpecialForm {
     }
 }
 
+fn do_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, Exception> {
+    let mut list = List::new(args);
+    let local_scope = Rc::new(RefCell::new(
+        Scope::new(Some(scope))
+    ));
+
+    if let ListItem::End = list.peek() {
+        return Err(Exception {
+            thrown_object: Value::new(DynType::Str(format!("Empty body")), None),
+            traceback: vec![],
+            previous_exception: None
+        });
+    }
+
+    let mut last = Value::new(DynType::Nil, None);
+    while let ListItem::Middle(expression) = list.next() {
+        last = calculate(special_forms.clone(), local_scope.clone(), ScopeState::Local, expression)?;
+    }
+    list.next().to_end()?;
+    Ok(last)
+}
+
 fn let_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let name = list.next().to_middle()?.content.to_symbol()?;
@@ -70,16 +89,10 @@ fn def_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Re
 
     let mut arguments = List::new(list.next().to_middle()?);
     let name = arguments.next().to_middle()?.content.to_symbol()?;
-    let mut body = List::new(list.next().to_middle()?);
+    let body = list.next().to_middle()?;
     list.next().to_end()?;
 
-    let mut statements = vec![];
-    while let ListItem::Middle(value) = body.next() {
-        statements.push(value);
-    }
-    body.next().to_end()?;
-
-    let function = CustomFunction::new(statements, scope.clone(), arguments.current_value);
+    let function = CustomFunction::new(body, scope.clone(), arguments.current_value);
     
     scope
         .borrow_mut()
@@ -100,16 +113,10 @@ fn lambda_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) ->
     let mut list = List::new(args);
 
     let arguments = list.next().to_middle()?;
-    let mut body = List::new(list.next().to_middle()?);
+    let body = list.next().to_middle()?;
     list.next().to_end()?;
 
-    let mut statements = vec![];
-    while let ListItem::Middle(value) = body.next() {
-        statements.push(value);
-    }
-    body.next().to_end()?;
-
-    let function = CustomFunction::new(statements, scope.clone(), arguments);
+    let function = CustomFunction::new(body, scope.clone(), arguments);
 
     Ok(Value::new(
         DynType::Closure(
@@ -236,13 +243,23 @@ pub fn all_special_forms() -> Rc<SpecialForms> {
         },
     );
 
+    let do_form_name = "do";
+    special_forms.insert(
+        do_form_name.to_string(),
+        SpecialForm {
+            name: do_form_name,
+            calculator: Rc::new(|special_forms, scope, args| do_form(special_forms, scope, args)),
+            possible_scope_state: ScopeState::Expression,
+        }
+    );
+
     let struct_form_name = "struct";
     special_forms.insert(
         struct_form_name.to_string(),
         SpecialForm {
             name: struct_form_name,
             calculator: Rc::new(|special_forms, scope, args| struct_form(special_forms, scope, args)),
-            possible_scope_state: ScopeState::Local,
+            possible_scope_state: ScopeState::Global,
         },
     );
 

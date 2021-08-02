@@ -89,8 +89,8 @@ impl Display for Struct {
             } else {
                 string.push_str(format!("({} ??) ", field_name).as_str())
             }
-            string.push_str("))")
         }
+        string.push_str("))");
         write!(f, "{}", string)
     }
 }

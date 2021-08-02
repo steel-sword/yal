@@ -52,17 +52,23 @@ fn lang_input(args: Value) -> Result<Value, Exception> {
 
 fn lang_println(arg: Value) -> Result<Value, Exception> {
     let mut list = List::new(arg);
-    let printed = list.next().to_middle()?;
+
+    while let ListItem::Middle(item) = list.next() {
+        println!("{}", item.content);
+    }
     list.next().to_end()?;
-    println!("{}", printed.content);
+
     Ok(Value::new(DynType::Nil, None))
 }
 
 fn lang_print(arg: Value) -> Result<Value, Exception> {
     let mut list = List::new(arg);
-    let printed = list.next().to_middle()?;
+    
+    while let ListItem::Middle(item) = list.next() {
+        print!("{}", item.content);
+    }
     list.next().to_end()?;
-    print!("{}", printed.content);
+
     stdout()
         .flush()
         .unwrap_or_else(|error| println!("Print error: {}", &error));

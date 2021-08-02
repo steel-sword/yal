@@ -10,7 +10,6 @@ pub struct DotPair {
     pub right: Value,
 }
 
-
 impl Display for DotPair {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut buffer = String::new();
@@ -20,12 +19,11 @@ impl Display for DotPair {
             buffer.push_str(format!(" {}", value.content).as_str());
         }
         match list.next() {
-            ListItem::Last(v) => buffer.push_str(format!(" . {})", v.content).as_str()) ,
+            ListItem::Last(v) => buffer.push_str(format!(" . {})", v.content).as_str()),
             ListItem::End => buffer.push(')'),
             ListItem::Middle(_) => unreachable!(),
         }
-        
+
         write!(f, "{}", buffer)
     }
 }
-

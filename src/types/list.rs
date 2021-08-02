@@ -1,4 +1,4 @@
-use super::{DynType, exception::Exception, value::Value};
+use super::{exception::Exception, value::Value, DynType};
 
 pub enum ListItem {
     Middle(Value),
@@ -16,18 +16,15 @@ impl ListItem {
                         "Unexpected part of list. Most be Pair, found {}",
                         value.content
                     )),
-                    None
+                    None,
                 ),
                 traceback: vec![],
-                previous_exception: None
+                previous_exception: None,
             }),
             ListItem::End => Err(Exception {
-                thrown_object: Value::new(
-                    DynType::Str(format!("Unexpected end of list")),
-                    None
-                ),
+                thrown_object: Value::new(DynType::Str(format!("Unexpected end of list")), None),
                 traceback: vec![],
-                previous_exception: None
+                previous_exception: None,
             }),
         }
     }
@@ -38,10 +35,10 @@ impl ListItem {
             ListItem::Middle(value) | ListItem::Last(value) => Err(Exception {
                 thrown_object: Value::new(
                     DynType::Str(format!("Expected end of list, found {}", value.content)),
-                    None
+                    None,
                 ),
                 traceback: vec![],
-                previous_exception: None
+                previous_exception: None,
             }),
         }
     }
@@ -74,9 +71,7 @@ impl List {
         let current_value = self.current_value.clone();
         match &*current_value.content {
             DynType::Nil => ListItem::End,
-            DynType::Pair(dot_pair) => {
-                ListItem::Middle(dot_pair.left.clone())
-            }
+            DynType::Pair(dot_pair) => ListItem::Middle(dot_pair.left.clone()),
             _ => ListItem::Last(current_value),
         }
     }

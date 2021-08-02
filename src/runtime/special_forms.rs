@@ -1,6 +1,17 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::{runtime::{custom_function::CustomFunction, scope::{Scope, ScopeRef, ScopeState}}, types::{DynType, StructType, exception::Exception, list::{List, ListItem}, value::Value}};
+use crate::{
+    runtime::{
+        custom_function::CustomFunction,
+        scope::{Scope, ScopeRef, ScopeState},
+    },
+    types::{
+        exception::Exception,
+        list::{List, ListItem},
+        value::Value,
+        DynType, StructType,
+    },
+};
 
 use super::calculators::calculate;
 
@@ -19,7 +30,7 @@ impl SpecialForm {
         scope: ScopeRef,
         scope_state: ScopeState,
         args: Value,
-        position: Option<(u32, u16)>
+        position: Option<(u32, u16)>,
     ) -> Result<Value, Exception> {
         if scope_state > self.possible_scope_state {
             Err(Exception {
@@ -28,7 +39,7 @@ impl SpecialForm {
                         "{} special form is allowed for {:?} scope but {:?} scope is given",
                         self.name, self.possible_scope_state, scope_state,
                     )),
-                    None
+                    None,
                 ),
                 traceback: vec![position],
                 previous_exception: None,
@@ -41,35 +52,46 @@ impl SpecialForm {
                         err.traceback.push(position);
                     }
                     Err(err)
-                },
+                }
             }
         }
     }
 }
 
-fn do_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, Exception> {
+fn do_form(
+    special_forms: Rc<SpecialForms>,
+    scope: ScopeRef,
+    args: Value,
+) -> Result<Value, Exception> {
     let mut list = List::new(args);
-    let local_scope = Rc::new(RefCell::new(
-        Scope::new(Some(scope))
-    ));
+    let local_scope = Rc::new(RefCell::new(Scope::new(Some(scope))));
 
     if let ListItem::End = list.peek() {
         return Err(Exception {
             thrown_object: Value::new(DynType::Str(format!("Empty body")), None),
             traceback: vec![],
-            previous_exception: None
+            previous_exception: None,
         });
     }
 
     let mut last = Value::new(DynType::Nil, None);
     while let ListItem::Middle(expression) = list.next() {
-        last = calculate(special_forms.clone(), local_scope.clone(), ScopeState::Local, expression)?;
+        last = calculate(
+            special_forms.clone(),
+            local_scope.clone(),
+            ScopeState::Local,
+            expression,
+        )?;
     }
     list.next().to_end()?;
     Ok(last)
 }
 
-fn let_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, Exception> {
+fn let_form(
+    special_forms: Rc<SpecialForms>,
+    scope: ScopeRef,
+    args: Value,
+) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let name = list.next().to_middle()?.content.to_symbol()?;
     let value_expr = list.next().to_middle()?;
@@ -84,7 +106,11 @@ fn let_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Re
     scope.borrow().variable(&String::from("nil"))
 }
 
-fn def_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, Exception> {
+fn def_form(
+    special_forms: Rc<SpecialForms>,
+    scope: ScopeRef,
+    args: Value,
+) -> Result<Value, Exception> {
     let mut list = List::new(args);
 
     let mut arguments = List::new(list.next().to_middle()?);
@@ -93,23 +119,25 @@ fn def_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Re
     list.next().to_end()?;
 
     let function = CustomFunction::new(body, scope.clone(), arguments.current_value);
-    
-    scope
-        .borrow_mut()
-        .define_variable(
-            name,
-            Value::new(
-                DynType::Closure(
-                    Rc::new(move |args| { function.call(special_forms.clone(), args) })
-                ),
-                None
-            )
-        )?;
+
+    scope.borrow_mut().define_variable(
+        name,
+        Value::new(
+            DynType::Closure(Rc::new(move |args| {
+                function.call(special_forms.clone(), args)
+            })),
+            None,
+        ),
+    )?;
 
     Ok(Value::new(DynType::Nil, None))
 }
 
-fn lambda_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, Exception>{
+fn lambda_form(
+    special_forms: Rc<SpecialForms>,
+    scope: ScopeRef,
+    args: Value,
+) -> Result<Value, Exception> {
     let mut list = List::new(args);
 
     let arguments = list.next().to_middle()?;
@@ -119,10 +147,10 @@ fn lambda_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) ->
     let function = CustomFunction::new(body, scope.clone(), arguments);
 
     Ok(Value::new(
-        DynType::Closure(
-            Rc::new(move |args| { function.call(special_forms.clone(), args) })
-        ),
-        None
+        DynType::Closure(Rc::new(move |args| {
+            function.call(special_forms.clone(), args)
+        })),
+        None,
     ))
 }
 
@@ -136,16 +164,21 @@ fn struct_form(_: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Valu
     while let ListItem::Middle(field) = fields_list.next() {
         fields.push(field.content.to_symbol()?)
     }
-    scope
-        .borrow_mut()
-        .define_variable(
-            name.clone(),
-           Value::new(DynType::StructDeclare(Rc::new(StructType { name, fields })), None)
-        )?;
+    scope.borrow_mut().define_variable(
+        name.clone(),
+        Value::new(
+            DynType::StructDeclare(Rc::new(StructType { name, fields })),
+            None,
+        ),
+    )?;
     Ok(Value::new(DynType::Nil, None))
 }
 
-fn get_field_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, Exception> {
+fn get_field_form(
+    special_forms: Rc<SpecialForms>,
+    scope: ScopeRef,
+    args: Value,
+) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let value_expr = list.next().to_middle()?;
     let required_field = list.next().to_middle()?.content.to_symbol()?;
@@ -161,7 +194,11 @@ fn get_field_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value)
     new_var.content.to_struct()?.get_field(required_field)
 }
 
-fn if_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, Exception> {
+fn if_form(
+    special_forms: Rc<SpecialForms>,
+    scope: ScopeRef,
+    args: Value,
+) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let condition = list.next().to_middle()?;
     let main_body = list.next().to_middle()?;
@@ -172,14 +209,20 @@ fn if_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Res
         scope.clone(),
         ScopeState::Expression,
         condition,
-    )?.content {
+    )?
+    .content
+    {
         calculate(special_forms, scope, ScopeState::Expression, else_body)
     } else {
         calculate(special_forms, scope, ScopeState::Expression, main_body)
     }
 }
 
-fn and_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, Exception> {
+fn and_form(
+    special_forms: Rc<SpecialForms>,
+    scope: ScopeRef,
+    args: Value,
+) -> Result<Value, Exception> {
     let mut list = List::new(args);
     while let ListItem::Middle(parameter) = list.next() {
         if let DynType::Nil = &*calculate(
@@ -187,14 +230,20 @@ fn and_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Re
             scope.clone(),
             ScopeState::Expression,
             parameter,
-        )?.content {
+        )?
+        .content
+        {
             return Ok(Value::new(DynType::Nil, None));
         }
     }
     Ok(Value::new(DynType::Number(1.0), None))
 }
 
-fn or_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, Exception> {
+fn or_form(
+    special_forms: Rc<SpecialForms>,
+    scope: ScopeRef,
+    args: Value,
+) -> Result<Value, Exception> {
     let mut list = List::new(args);
     while let ListItem::Middle(parameter) = list.next() {
         if let DynType::Nil = &*calculate(
@@ -202,7 +251,9 @@ fn or_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Res
             scope.clone(),
             ScopeState::Expression,
             parameter,
-        )?.content {
+        )?
+        .content
+        {
         } else {
             return Ok(Value::new(DynType::Number(1.0), None));
         }
@@ -238,7 +289,9 @@ pub fn all_special_forms() -> Rc<SpecialForms> {
         lambda_form_name.to_string(),
         SpecialForm {
             name: lambda_form_name,
-            calculator: Rc::new(|special_forms, scope, args| lambda_form(special_forms, scope, args)),
+            calculator: Rc::new(|special_forms, scope, args| {
+                lambda_form(special_forms, scope, args)
+            }),
             possible_scope_state: ScopeState::Expression,
         },
     );
@@ -250,7 +303,7 @@ pub fn all_special_forms() -> Rc<SpecialForms> {
             name: do_form_name,
             calculator: Rc::new(|special_forms, scope, args| do_form(special_forms, scope, args)),
             possible_scope_state: ScopeState::Expression,
-        }
+        },
     );
 
     let struct_form_name = "struct";
@@ -258,7 +311,9 @@ pub fn all_special_forms() -> Rc<SpecialForms> {
         struct_form_name.to_string(),
         SpecialForm {
             name: struct_form_name,
-            calculator: Rc::new(|special_forms, scope, args| struct_form(special_forms, scope, args)),
+            calculator: Rc::new(|special_forms, scope, args| {
+                struct_form(special_forms, scope, args)
+            }),
             possible_scope_state: ScopeState::Global,
         },
     );
@@ -298,7 +353,9 @@ pub fn all_special_forms() -> Rc<SpecialForms> {
         get_field_form_name.to_string(),
         SpecialForm {
             name: get_field_form_name,
-            calculator: Rc::new(|special_forms, scope, args| get_field_form(special_forms, scope, args)),
+            calculator: Rc::new(|special_forms, scope, args| {
+                get_field_form(special_forms, scope, args)
+            }),
             possible_scope_state: ScopeState::Expression,
         },
     );

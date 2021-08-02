@@ -1,6 +1,6 @@
 use std::{rc::Rc, vec};
 
-use crate::types::{DynType, dot_pair::DotPair, exception::Exception, value::Value};
+use crate::types::{dot_pair::DotPair, exception::Exception, value::Value, DynType};
 
 use super::{
     functions::all_base_functions,
@@ -47,12 +47,16 @@ fn calculate_call(
             Err(mut err) => {
                 err.traceback.push(value.position);
                 Err(err)
-            },
+            }
         }
     } else {
         Err(Exception {
             thrown_object: Value::new(
-                DynType::Str(format!("{} is not a function or special form", pair.left.content)), None
+                DynType::Str(format!(
+                    "{} is not a function or special form",
+                    pair.left.content
+                )),
+                None,
             ),
             traceback: vec![value.position],
             previous_exception: None,
@@ -103,11 +107,16 @@ pub fn calculate(
         },
         DynType::Quoted(quoted) => match &*(quoted.content) {
             DynType::Pair(pair) => rebuild_list_with_calculation(special_forms, scope, pair)?,
-            _ => return Err(Exception {
-                thrown_object: Value::new(DynType::Str(format!("Only pair could be quoted")), None),
-                traceback: vec![given_value.position],
-                previous_exception: None,
-            })
+            _ => {
+                return Err(Exception {
+                    thrown_object: Value::new(
+                        DynType::Str(format!("Only pair could be quoted")),
+                        None,
+                    ),
+                    traceback: vec![given_value.position],
+                    previous_exception: None,
+                })
+            }
         },
         _ => given_value,
     })

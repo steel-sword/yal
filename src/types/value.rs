@@ -10,7 +10,10 @@ pub struct Value {
 
 impl Value {
     pub fn new(content: DynType, position: Option<(u32, u16)>) -> Self {
-        Self { content: Rc::new(content), position }
+        Self {
+            content: Rc::new(content),
+            position,
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::lexer::{Lexeme, Token};
+use crate::types::dot_pair::DotPair;
 use crate::types::value::Value;
-use crate::types::{dot_pair::DotPair};
 use crate::types::DynType;
 
 fn is_next(lexeme: Option<Lexeme>) -> Result<Lexeme, String> {
@@ -36,7 +36,9 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_list(&mut self) -> Result<DynType, String> {
-        let Lexeme { line, line_char, .. } = self.current_lexeme.clone().unwrap();
+        let Lexeme {
+            line, line_char, ..
+        } = self.current_lexeme.clone().unwrap();
         let position = Some((line, line_char));
 
         let left = match is_next(self.current_lexeme.clone())?.token {
@@ -87,7 +89,7 @@ impl<'a> Parser<'a> {
                 // dots, close brackets, etc. are wrong begin tokens
                 _ => unexpected_token(&current)?,
             },
-            position
+            position,
         ))
     }
 

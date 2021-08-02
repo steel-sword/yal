@@ -43,13 +43,15 @@ fn exec(text: String) {
                         if let Some(pos) = position {
                             eprintln!("{}-{}", pos.0, pos.1);
                             eprintln!("{}", lines[pos.0 as usize - 1]);
-                            let mut arrow = std::iter::repeat("-").take(pos.1 as usize - 1).collect::<String>();
+                            let mut arrow = std::iter::repeat("-")
+                                .take(pos.1 as usize - 1)
+                                .collect::<String>();
                             arrow.push('^');
                             eprintln!("{}", arrow);
                         }
                     }
                     eprintln!("Exception: {:#?}", &err.thrown_object.content);
-                },
+                }
             },
             Err(err) => eprintln!("{}", err),
         },

@@ -1,6 +1,6 @@
 use std::{cell::RefCell, cmp::Ordering, collections::HashMap, rc::Rc};
 
-use crate::types::{DynType, exception::Exception, value::Value};
+use crate::types::{exception::Exception, value::Value, DynType};
 
 pub struct Scope {
     pub variables: HashMap<String, Value>,
@@ -25,7 +25,8 @@ impl Scope {
         } else {
             Err(Exception {
                 thrown_object: Value::new(
-                    DynType::Str(format!("variable {} is undefined", name)), None
+                    DynType::Str(format!("variable {} is undefined", name)),
+                    None,
                 ),
                 traceback: vec![],
                 previous_exception: None,
@@ -37,7 +38,8 @@ impl Scope {
         if self.variables.contains_key(&name) {
             Err(Exception {
                 thrown_object: Value::new(
-                    DynType::Str(format!("variable {} already exists", &name)), None
+                    DynType::Str(format!("variable {} already exists", &name)),
+                    None,
                 ),
                 traceback: vec![],
                 previous_exception: None,

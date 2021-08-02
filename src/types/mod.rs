@@ -1,7 +1,7 @@
-pub mod value;
 pub mod dot_pair;
-pub mod list;
 pub mod exception;
+pub mod list;
+pub mod value;
 
 use std::{
     fmt::{Debug, Display},
@@ -10,12 +10,10 @@ use std::{
 
 use self::{dot_pair::DotPair, exception::Exception, list::List, value::Value};
 
-
-
 #[derive(Debug)]
 pub struct StructType {
     pub name: String,
-    pub fields: Vec<String> // field name and its index
+    pub fields: Vec<String>, // field name and its index
 }
 
 impl Display for StructType {
@@ -35,7 +33,6 @@ impl Display for StructType {
         write!(f, "{}", string)
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub struct Struct {
@@ -59,14 +56,15 @@ impl Struct {
 
         for name in &(&*self.struct_type).fields {
             let item = fields.next().to_middle()?;
-            if name.eq(&required_field)  {
+            if name.eq(&required_field) {
                 return Ok(item);
             }
         }
 
         Err(Exception {
             thrown_object: Value::new(
-                DynType::Str(format!("{} field is not found", required_field)), None
+                DynType::Str(format!("{} field is not found", required_field)),
+                None,
             ),
             traceback: vec![],
             previous_exception: None,
@@ -95,7 +93,6 @@ impl Display for Struct {
     }
 }
 
-
 pub enum DynType {
     Nil,
     Number(f64),
@@ -115,7 +112,8 @@ impl DynType {
         } else {
             Err(Exception {
                 thrown_object: Value::new(
-                    DynType::Str(format!("Expected Number, given, {}", &*self)), None
+                    DynType::Str(format!("Expected Number, given, {}", &*self)),
+                    None,
                 ),
                 traceback: vec![],
                 previous_exception: None,
@@ -129,7 +127,8 @@ impl DynType {
         } else {
             Err(Exception {
                 thrown_object: Value::new(
-                    DynType::Str(format!("Expected Number, given, {}", &*self)), None
+                    DynType::Str(format!("Expected Number, given, {}", &*self)),
+                    None,
                 ),
                 traceback: vec![],
                 previous_exception: None,
@@ -143,7 +142,8 @@ impl DynType {
         } else {
             Err(Exception {
                 thrown_object: Value::new(
-                    DynType::Str(format!("Expected Pair, given, {}", &*self)), None
+                    DynType::Str(format!("Expected Pair, given, {}", &*self)),
+                    None,
                 ),
                 traceback: vec![],
                 previous_exception: None,
@@ -157,7 +157,8 @@ impl DynType {
         } else {
             Err(Exception {
                 thrown_object: Value::new(
-                    DynType::Str(format!("Expected Record, given, {}", &*self)), None
+                    DynType::Str(format!("Expected Record, given, {}", &*self)),
+                    None,
                 ),
                 traceback: vec![],
                 previous_exception: None,
@@ -171,7 +172,8 @@ impl DynType {
         } else {
             Err(Exception {
                 thrown_object: Value::new(
-                    DynType::Str(format!("Expected Closure, given {}", self)), None
+                    DynType::Str(format!("Expected Closure, given {}", self)),
+                    None,
                 ),
                 traceback: vec![],
                 previous_exception: None,
@@ -185,7 +187,8 @@ impl DynType {
         } else {
             Err(Exception {
                 thrown_object: Value::new(
-                    DynType::Str(format!("Expected RecordDeclare, given, {}", &*self)), None
+                    DynType::Str(format!("Expected RecordDeclare, given, {}", &*self)),
+                    None,
                 ),
                 traceback: vec![],
                 previous_exception: None,
@@ -217,8 +220,7 @@ impl Debug for DynType {
                 .debug_struct("Struct")
                 .field("struct_type", &struct_value.struct_type)
                 .field("data", &struct_value.data)
-                .finish()
-            ,
+                .finish(),
         }
     }
 }
@@ -247,7 +249,8 @@ impl PartialEq for DynType {
             (DynType::Str(string1), DynType::Str(string2)) => *string1 == *string2,
             (DynType::Quoted(value1), DynType::Quoted(value2)) => value1.content == value2.content,
             (DynType::Pair(pair1), DynType::Pair(pair2)) => {
-                pair1.left.content == pair2.left.content && pair1.right.content == pair2.right.content
+                pair1.left.content == pair2.left.content
+                    && pair1.right.content == pair2.right.content
             }
 
             (DynType::Nil, DynType::Nil) => true,
@@ -263,7 +266,7 @@ impl PartialOrd for DynType {
         match (self, other) {
             (DynType::Number(x), DynType::Number(y)) => x.partial_cmp(y),
             (DynType::Str(x), DynType::Str(y)) => x.partial_cmp(y),
-            _ => None
+            _ => None,
         }
     }
 }

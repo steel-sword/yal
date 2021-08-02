@@ -1,6 +1,6 @@
 use std::{cell::RefCell, cmp::Ordering, collections::HashMap, rc::Rc};
 
-use crate::types::value::Value;
+use crate::types::{DynType, exception::Exception, value::Value};
 
 pub struct Scope {
     pub variables: HashMap<String, Value>,
@@ -17,19 +17,31 @@ impl Scope {
         }
     }
 
-    pub fn variable(&self, name: &String) -> Result<Value, String> {
+    pub fn variable(&self, name: &String) -> Result<Value, Exception> {
         if let Some(value) = self.variables.get(name) {
             Ok(value.clone())
         } else if let Some(outer_scope) = &self.outer_scope {
             outer_scope.borrow_mut().variable(name)
         } else {
-            Err(format!("variable {} is undefined", name))
+            Err(Exception {
+                thrown_object: Value::new(
+                    DynType::Str(format!("variable {} is undefined", name)), None
+                ),
+                traceback: vec![],
+                previous_exception: None,
+            })
         }
     }
 
-    pub fn define_variable(&mut self, name: String, value: Value) -> Result<(), String> {
+    pub fn define_variable(&mut self, name: String, value: Value) -> Result<(), Exception> {
         if self.variables.contains_key(&name) {
-            Err(format!("variable {} is already exists", &name))
+            Err(Exception {
+                thrown_object: Value::new(
+                    DynType::Str(format!("variable {} already exists", &name)), None
+                ),
+                traceback: vec![],
+                previous_exception: None,
+            })
         } else {
             self.variables.insert(name, value);
             Ok(())

@@ -2,7 +2,7 @@ use std::{collections::HashMap, rc::Rc};
 
 use crate::{
     runtime::{custom_function::CustomFunction, scope::{ScopeRef, ScopeState}},
-    types::{DynType, list::{List, ListItem}, StructType, value::Value}
+    types::{DynType, StructType, exception::Exception, list::{List, ListItem}, value::Value}
 };
 
 use super::calculators::calculate;
@@ -11,7 +11,7 @@ pub type SpecialForms = HashMap<String, SpecialForm>;
 
 pub struct SpecialForm {
     pub name: &'static str,
-    calculator: Rc<dyn Fn(Rc<SpecialForms>, ScopeRef, Value) -> Result<Value, String>>,
+    calculator: Rc<dyn Fn(Rc<SpecialForms>, ScopeRef, Value) -> Result<Value, Exception>>,
     possible_scope_state: ScopeState,
 }
 
@@ -22,19 +22,35 @@ impl SpecialForm {
         scope: ScopeRef,
         scope_state: ScopeState,
         args: Value,
-    ) -> Result<Value, String> {
+        position: Option<(u32, u16)>
+    ) -> Result<Value, Exception> {
         if scope_state > self.possible_scope_state {
-            Err(format!(
-                "{} special form is allowed for {:?} scope but {:?} scope is given",
-                self.name, self.possible_scope_state, scope_state,
-            ))
+            Err(Exception {
+                thrown_object: Value::new(
+                    DynType::Str(format!(
+                        "{} special form is allowed for {:?} scope but {:?} scope is given",
+                        self.name, self.possible_scope_state, scope_state,
+                    )),
+                    None
+                ),
+                traceback: vec![position],
+                previous_exception: None,
+            })
         } else {
-            (self.calculator)(special_forms, scope, args)
+            match (self.calculator)(special_forms, scope, args) {
+                Ok(ok) => Ok(ok),
+                Err(mut err) => {
+                    if err.traceback.is_empty() {
+                        err.traceback.push(position);
+                    }
+                    Err(err)
+                },
+            }
         }
     }
 }
 
-fn let_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, String> {
+fn let_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let name = list.next().to_middle()?.content.to_symbol()?;
     let value_expr = list.next().to_middle()?;
@@ -49,7 +65,7 @@ fn let_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Re
     scope.borrow().variable(&String::from("nil"))
 }
 
-fn def_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, String>{
+fn def_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
 
     let mut arguments = List::new(list.next().to_middle()?);
@@ -69,7 +85,7 @@ fn def_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Re
         .borrow_mut()
         .define_variable(
             name,
-           Value::new(
+            Value::new(
                 DynType::Closure(
                     Rc::new(move |args| { function.call(special_forms.clone(), args) })
                 ),
@@ -80,7 +96,7 @@ fn def_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Re
     Ok(Value::new(DynType::Nil, None))
 }
 
-fn lambda_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, String>{
+fn lambda_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, Exception>{
     let mut list = List::new(args);
 
     let arguments = list.next().to_middle()?;
@@ -103,7 +119,7 @@ fn lambda_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) ->
     ))
 }
 
-fn struct_form(_: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, String> {
+fn struct_form(_: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let name = list.next().to_middle()?.content.to_symbol()?;
     let mut fields_list = List::new(list.next().to_middle()?);
@@ -122,7 +138,7 @@ fn struct_form(_: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Valu
     Ok(Value::new(DynType::Nil, None))
 }
 
-fn get_field_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, String> {
+fn get_field_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let value_expr = list.next().to_middle()?;
     let required_field = list.next().to_middle()?.content.to_symbol()?;
@@ -138,7 +154,7 @@ fn get_field_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value)
     new_var.content.to_struct()?.get_field(required_field)
 }
 
-fn if_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, String> {
+fn if_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let condition = list.next().to_middle()?;
     let main_body = list.next().to_middle()?;
@@ -156,7 +172,7 @@ fn if_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Res
     }
 }
 
-fn and_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, String> {
+fn and_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     while let ListItem::Middle(parameter) = list.next() {
         if let DynType::Nil = &*calculate(
@@ -171,7 +187,7 @@ fn and_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Re
     Ok(Value::new(DynType::Number(1.0), None))
 }
 
-fn or_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, String> {
+fn or_form(special_forms: Rc<SpecialForms>, scope: ScopeRef, args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     while let ListItem::Middle(parameter) = list.next() {
         if let DynType::Nil = &*calculate(

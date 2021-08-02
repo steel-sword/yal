@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::types::{dot_pair::DotPair, DynType, list::{List, ListItem}, value::Value};
+use crate::types::{DynType, dot_pair::DotPair, exception::Exception, list::{List, ListItem}, value::Value};
 
 use super::{calculators::calculate, scope::{Scope, ScopeRef}, special_forms::SpecialForms};
 
@@ -15,24 +15,40 @@ impl CustomFunction {
         Self { statements, outer_scope, arg_symbols }
     }
 
-    pub fn call(&self, special_forms: Rc<SpecialForms>, args: Value) -> Result<Value, String> {
+    pub fn call(&self, special_forms: Rc<SpecialForms>, args: Value) -> Result<Value, Exception> {
         let scope = Rc::new(RefCell::new(
             Scope::new(Some(self.outer_scope.clone()))
         ));
         self.define_parameters_in_scope(scope.clone(), args)?;
-        let mut last = Err(format!("Empty body"));
+        let mut last = Err(Exception {
+            thrown_object: Value::new(DynType::Str(format!("Empty body")), None),
+            traceback: vec![],
+            previous_exception: None
+        });
         for statement in self.statements.iter() {
-            last = Ok(calculate(special_forms.clone(), scope.clone(), super::scope::ScopeState::Local, statement.clone())?);
+            let value = calculate(special_forms.clone(), scope.clone(), super::scope::ScopeState::Local, statement.clone());
+            if let Err(err) = value {
+                return Err(err);
+            }
+            last = value;
         }
         last
     }
 
-    fn define_parameters_in_scope(&self, scope: ScopeRef, args: Value) -> Result<(), String> {
+    fn define_parameters_in_scope(&self, scope: ScopeRef, args: Value) -> Result<(), Exception> {
         let mut defined_args = List::new(self.arg_symbols.clone());
         let mut got_args = List::new(args);
+        let prepared_exception = Err(Exception {
+            thrown_object: Value::new(DynType::Str(format!("Arguments count error, given more or less")), None),
+            traceback: vec![],
+            previous_exception: None
+        });
 
         while let ListItem::Middle(value) = defined_args.next() {
-            let next = got_args.next().to_middle()?;
+            let next = match got_args.next().to_middle() {
+                Ok(v) => v,
+                Err(_) => return prepared_exception,
+            };
             scope.borrow_mut().define_variable(value.content.to_symbol()?, next)?;
         }
         match (defined_args.next(), got_args.next()) {
@@ -44,7 +60,7 @@ impl CustomFunction {
                 )?;
             }
             (ListItem::End, ListItem::End) => {},
-            _ => return Err(format!("Arguments count error, given more or less"))
+            _ => return prepared_exception
         }
 
         Ok(())

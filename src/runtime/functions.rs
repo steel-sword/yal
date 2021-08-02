@@ -1,19 +1,15 @@
-use std::{
-    collections::HashMap,
-    io::{stdin, stdout, Write},
-    rc::Rc,
-};
+use std::{collections::HashMap, io::{stdin, stdout, Write}, rc::Rc, vec};
 
-use crate::types::{dot_pair::DotPair, DynType, list::{List, ListItem}, Struct, value::Value};
+use crate::types::{DynType, Struct, dot_pair::DotPair, exception::Exception, list::{List, ListItem}, value::Value};
 
-fn lang_new(args: Value) -> Result<Value, String> {
+fn lang_new(args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let struct_type = list.next().to_middle()?.content.to_struct_declare()?;
     let rest = list.current_value.clone();
     Ok(Value::new(DynType::Struct(Struct::new(struct_type, rest)?), None))
 }
 
-fn lang_apply(args: Value) -> Result<Value, String> {
+fn lang_apply(args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let closure = list.next().to_middle()?.content.to_closure()?;
     let args = list.next().to_middle()?;
@@ -21,7 +17,7 @@ fn lang_apply(args: Value) -> Result<Value, String> {
     closure(args)
 }
 
-fn lang_input(args: Value) -> Result<Value, String> {
+fn lang_input(args: Value) -> Result<Value, Exception> {
     let mut buffer = String::new();
     List::new(args).next().to_end()?;
     match stdin().read_line(&mut buffer) {
@@ -31,11 +27,15 @@ fn lang_input(args: Value) -> Result<Value, String> {
             )),
             None
         )),
-        Err(err) => Err(format!("Cannot read from stdio, cause: {}", err)),
+        Err(err) => Err(Exception {
+            thrown_object: Value::new(DynType::Str(format!("Cannot read from stdio, cause: {}", err)), None),
+            traceback: vec![],
+            previous_exception: None
+        })
     }
 }
 
-fn lang_println(arg: Value) -> Result<Value, String> {
+fn lang_println(arg: Value) -> Result<Value, Exception> {
     let mut list = List::new(arg);
     let printed = list.next().to_middle()?;
     list.next().to_end()?;
@@ -43,7 +43,7 @@ fn lang_println(arg: Value) -> Result<Value, String> {
     Ok(Value::new(DynType::Nil, None))
 }
 
-fn lang_print(arg: Value) -> Result<Value, String> {
+fn lang_print(arg: Value) -> Result<Value, Exception> {
     let mut list = List::new(arg);
     let printed = list.next().to_middle()?;
     list.next().to_end()?;
@@ -52,7 +52,7 @@ fn lang_print(arg: Value) -> Result<Value, String> {
     Ok(Value::new(DynType::Nil, None))
 }
 
-fn lang_num_add(args: Value) -> Result<Value, String> {
+fn lang_num_add(args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let mut accum = 0.0;
 
@@ -63,7 +63,7 @@ fn lang_num_add(args: Value) -> Result<Value, String> {
     Ok(Value::new(DynType::Number(accum), None))
 }
 
-fn lang_num_mul(args: Value) -> Result<Value, String> {
+fn lang_num_mul(args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let mut accum = 1.0;
 
@@ -74,7 +74,7 @@ fn lang_num_mul(args: Value) -> Result<Value, String> {
     Ok(Value::new(DynType::Number(accum), None))
 }
 
-fn lang_num_sub(args: Value) -> Result<Value, String> {
+fn lang_num_sub(args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let mut accum = list.next().to_middle()?.content.to_number()?;
 
@@ -90,7 +90,7 @@ fn lang_num_sub(args: Value) -> Result<Value, String> {
     Ok(Value::new(DynType::Number(accum), None))
 }
 
-fn lang_num_div(args: Value) -> Result<Value, String> {
+fn lang_num_div(args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let mut accum = list.next().to_middle()?.content.to_number()?;
 
@@ -101,7 +101,7 @@ fn lang_num_div(args: Value) -> Result<Value, String> {
     Ok(Value::new(DynType::Number(accum), None))
 }
 
-fn lang_equals(args: Value) -> Result<Value, String> {
+fn lang_equals(args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let first = list.next().to_middle()?;
     while let ListItem::Middle(current) = list.next() {
@@ -113,7 +113,7 @@ fn lang_equals(args: Value) -> Result<Value, String> {
     Ok(Value::new(DynType::Number(1.0), None))
 }
 
-fn lang_not_equals(args: Value) -> Result<Value, String> {
+fn lang_not_equals(args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let first = list.next().to_middle()?;
     while let ListItem::Middle(current) = list.next() {
@@ -125,7 +125,7 @@ fn lang_not_equals(args: Value) -> Result<Value, String> {
     Ok(Value::new(DynType::Number(1.0), None))
 }
 
-fn lang_greater_than(args: Value) -> Result<Value, String> {
+fn lang_greater_than(args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let mut previous = list.next().to_middle()?;
     while let ListItem::Middle(current) = list.next() {
@@ -135,7 +135,13 @@ fn lang_greater_than(args: Value) -> Result<Value, String> {
                 std::cmp::Ordering::Equal => return Ok(Value::new(DynType::Nil, None)),
                 std::cmp::Ordering::Greater => {},
             },
-            None => return Ok(Value::new(DynType::Nil, None)),
+            None => return Err(Exception {
+                thrown_object: Value::new(DynType::Str(
+                    format!("Uncomparable types {:?} and {:?}", previous.content, current.content)
+                ), None),
+                traceback: vec![],
+                previous_exception: None
+            }),
         }
 
         previous = current;
@@ -144,7 +150,7 @@ fn lang_greater_than(args: Value) -> Result<Value, String> {
     Ok(Value::new(DynType::Number(1.0), None))
 }
 
-fn lang_greater_than_or_equals(args: Value) -> Result<Value, String> {
+fn lang_greater_than_or_equals(args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let mut previous = list.next().to_middle()?;
     while let ListItem::Middle(current) = list.next() {
@@ -154,7 +160,13 @@ fn lang_greater_than_or_equals(args: Value) -> Result<Value, String> {
                 std::cmp::Ordering::Equal => {},
                 std::cmp::Ordering::Greater => {},
             },
-            None => return Ok(Value::new(DynType::Nil, None)),
+            None => return Err(Exception {
+                thrown_object: Value::new(DynType::Str(
+                    format!("Uncomparable types {:?} and {:?}", previous.content, current.content)
+                ), None),
+                traceback: vec![],
+                previous_exception: None
+            }),
         }
 
         previous = current;
@@ -163,7 +175,7 @@ fn lang_greater_than_or_equals(args: Value) -> Result<Value, String> {
     Ok(Value::new(DynType::Number(1.0), None))
 }
 
-fn lang_less_than(args: Value) -> Result<Value, String> {
+fn lang_less_than(args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let mut previous = list.next().to_middle()?;
     while let ListItem::Middle(current) = list.next() {
@@ -173,7 +185,13 @@ fn lang_less_than(args: Value) -> Result<Value, String> {
                 std::cmp::Ordering::Equal => return Ok(Value::new(DynType::Nil, None)),
                 std::cmp::Ordering::Greater => return Ok(Value::new(DynType::Nil, None)),
             },
-            None => return Ok(Value::new(DynType::Nil, None)),
+            None => return Err(Exception {
+                thrown_object: Value::new(DynType::Str(
+                    format!("Uncomparable types {:?} and {:?}", previous.content, current.content)
+                ), None),
+                traceback: vec![],
+                previous_exception: None
+            }),
         }
 
         previous = current;
@@ -182,7 +200,7 @@ fn lang_less_than(args: Value) -> Result<Value, String> {
     Ok(Value::new(DynType::Number(1.0), None))
 }
 
-fn lang_less_than_or_equals(args: Value) -> Result<Value, String> {
+fn lang_less_than_or_equals(args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let mut previous = list.next().to_middle()?;
     while let ListItem::Middle(current) = list.next() {
@@ -192,7 +210,13 @@ fn lang_less_than_or_equals(args: Value) -> Result<Value, String> {
                 std::cmp::Ordering::Equal => {},
                 std::cmp::Ordering::Greater => return Ok(Value::new(DynType::Nil, None)),
             },
-            None => return Ok(Value::new(DynType::Nil, None)),
+            None => return Err(Exception {
+                thrown_object: Value::new(DynType::Str(
+                    format!("Uncomparable types {:?} and {:?}", previous.content, current.content)
+                ), None),
+                traceback: vec![],
+                previous_exception: None
+            }),
         }
 
         previous = current;
@@ -201,7 +225,7 @@ fn lang_less_than_or_equals(args: Value) -> Result<Value, String> {
     Ok(Value::new(DynType::Number(1.0), None))
 }
 
-fn lang_cmp(args: Value) -> Result<Value, String> {
+fn lang_cmp(args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let first = list.next().to_middle()?;
     let second = list.next().to_middle()?;
@@ -213,12 +237,18 @@ fn lang_cmp(args: Value) -> Result<Value, String> {
             std::cmp::Ordering::Equal => Ok(Value::new(DynType::Number(0.0), None)),
             std::cmp::Ordering::Greater => Ok(Value::new(DynType::Number(1.0), None)),
         },
-        None => Ok(Value::new(DynType::Nil, None)),
+        None => Err(Exception {
+            thrown_object: Value::new(DynType::Str(
+                format!("Uncomparable types {:?} and {:?}", first.content, second.content)
+            ), None),
+            traceback: vec![],
+            previous_exception: None
+        }),
     }
 }
 
 
-fn lang_cons(args: Value) -> Result<Value, String> {
+fn lang_cons(args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let left = list.next().to_middle()?;
     let right = list.next().to_middle()?;
@@ -226,7 +256,7 @@ fn lang_cons(args: Value) -> Result<Value, String> {
     Ok(Value::new(DynType::Pair(DotPair { left, right }), None))
 }
 
-fn lang_left(args: Value) -> Result<Value, String> {
+fn lang_left(args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let pair = list.next().to_middle()?;
     let pair = pair.content.to_pair()?;
@@ -235,7 +265,7 @@ fn lang_left(args: Value) -> Result<Value, String> {
     Ok(left)
 }
 
-fn lang_right(args: Value) -> Result<Value, String> {
+fn lang_right(args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let pair = list.next().to_middle()?;
     let pair = pair.content.to_pair()?;
@@ -244,7 +274,7 @@ fn lang_right(args: Value) -> Result<Value, String> {
     Ok(right)
 }
 
-fn lang_concat(args: Value) -> Result<Value, String> {
+fn lang_concat(args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let mut accum = String::new();
 
@@ -255,7 +285,7 @@ fn lang_concat(args: Value) -> Result<Value, String> {
     Ok(Value::new(DynType::Str(accum), None))
 }
 
-fn lang_number(args: Value) -> Result<Value, String> {
+fn lang_number(args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let parameter = list.next().to_middle()?;
     list.next().to_end()?;
@@ -267,18 +297,30 @@ fn lang_number(args: Value) -> Result<Value, String> {
             DynType::Number(
                 match s.parse::<f64>() {
                     Ok(num) => num,
-                    Err(_) => return Err(format!("Cannot parse '{}' to int", s)),
+                    Err(_) => return Err(Exception {
+                        thrown_object: Value::new(DynType::Str(
+                            format!("Cannot parse '{}' to int", s)
+                        ), None),
+                        traceback: vec![],
+                        previous_exception: None
+                    }),
                 }
             ),
             None
         ),
-        other => return Err(format!("Cannot parse '{}' to int", other)),
+        other => return Err(Exception {
+            thrown_object: Value::new(DynType::Str(
+                format!("Cannot parse '{}' to int", other)
+            ), None),
+            traceback: vec![],
+            previous_exception: None
+        }),
     };
 
     Ok(number)
 }
 
-fn lang_str(args: Value) -> Result<Value, String> {
+fn lang_str(args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let item = list.next().to_middle()?;
     list.next().to_end()?;
@@ -286,12 +328,18 @@ fn lang_str(args: Value) -> Result<Value, String> {
     Ok(Value::new(DynType::Str(format!("{}", item.content)), None))
 }
 
-fn lang_split(args: Value) -> Result<Value, String> {
+fn lang_split(args: Value) -> Result<Value, Exception> {
     let mut list = List::new(args);
     let text = list.next().to_middle()?.content.to_string();
     let pat = match list.next() {
         ListItem::Middle(s) => (&*s.content).to_string(),
-        ListItem::Last(_) => return Err(format!("Syntax Error")),
+        ListItem::Last(_) => return Err(Exception {
+            thrown_object: Value::new(DynType::Str(
+                format!("Syntax Error")
+            ), None),
+            traceback: vec![],
+            previous_exception: None
+        }),
         ListItem::End => " ".to_string(),
     };
     list.next().to_end()?;

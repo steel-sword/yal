@@ -1,4 +1,4 @@
-use super::{DynType, value::Value};
+use super::{DynType, exception::Exception, value::Value};
 
 pub enum ListItem {
     Middle(Value),
@@ -7,22 +7,42 @@ pub enum ListItem {
 }
 
 impl ListItem {
-    pub fn to_middle(self) -> Result<Value, String> {
+    pub fn to_middle(self) -> Result<Value, Exception> {
         match self {
             ListItem::Middle(value) => Ok(value),
-            ListItem::Last(value) => Err(format!(
-                "unexpected part of list. Most be pair, found {}",
-                value.content
-            )),
-            ListItem::End => Err(format!("Unexpected end of list")),
+            ListItem::Last(value) => Err(Exception {
+                thrown_object: Value::new(
+                    DynType::Str(format!(
+                        "Unexpected part of list. Most be Pair, found {}",
+                        value.content
+                    )),
+                    None
+                ),
+                traceback: vec![],
+                previous_exception: None
+            }),
+            ListItem::End => Err(Exception {
+                thrown_object: Value::new(
+                    DynType::Str(format!("Unexpected end of list")),
+                    None
+                ),
+                traceback: vec![],
+                previous_exception: None
+            }),
         }
     }
 
-    pub fn to_end(self) -> Result<(), String> {
+    pub fn to_end(self) -> Result<(), Exception> {
         match self {
             ListItem::End => Ok(()),
-            ListItem::Middle(value) => Err(format!("Expected end of list, found {}", value.content)),
-            ListItem::Last(value) => Err(format!("Expected end of list, found {}", value.content)),
+            ListItem::Middle(value) | ListItem::Last(value) => Err(Exception {
+                thrown_object: Value::new(
+                    DynType::Str(format!("Expected end of list, found {}", value.content)),
+                    None
+                ),
+                traceback: vec![],
+                previous_exception: None
+            }),
         }
     }
 }

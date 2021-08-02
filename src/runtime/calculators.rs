@@ -1,6 +1,6 @@
-use std::rc::Rc;
+use std::{rc::Rc, vec};
 
-use crate::types::{dot_pair::DotPair, DynType, value::Value};
+use crate::types::{DynType, dot_pair::DotPair, exception::Exception, value::Value};
 
 use super::{
     functions::all_base_functions,
@@ -25,7 +25,7 @@ fn calculate_call(
     scope: ScopeRef,
     scope_state: ScopeState,
     value: Value,
-) -> Result<Value, String> {
+) -> Result<Value, Exception> {
     let pair = value.content.to_pair()?;
     if let DynType::Symbol(symbol) = &*pair.left.content {
         if let Some(special_form) = special_forms.clone().get(symbol) {
@@ -34,6 +34,7 @@ fn calculate_call(
                 scope.clone(),
                 scope_state,
                 pair.right.clone(),
+                value.position,
             );
         }
     }
@@ -41,9 +42,21 @@ fn calculate_call(
     let rebuilded = rebuild_list_with_calculation(special_forms, scope, &pair)?;
     let pair = rebuilded.content.to_pair()?;
     if let DynType::Closure(clojure) = &*pair.left.content {
-        (*clojure)(pair.right.clone())
+        match (*clojure)(pair.right.clone()) {
+            Ok(ok) => Ok(ok),
+            Err(mut err) => {
+                err.traceback.push(value.position);
+                Err(err)
+            },
+        }
     } else {
-        Err(format!("{} is not a function or special form", pair.left.content))
+        Err(Exception {
+            thrown_object: Value::new(
+                DynType::Str(format!("{} is not a function or special form", pair.left.content)), None
+            ),
+            traceback: vec![value.position],
+            previous_exception: None,
+        })
     }
 }
 
@@ -51,7 +64,7 @@ fn rebuild_list_with_calculation(
     special_forms: Rc<SpecialForms>,
     scope: ScopeRef,
     pair: &DotPair,
-) -> Result<Value, String> {
+) -> Result<Value, Exception> {
     let left = calculate(
         special_forms.clone(),
         scope.clone(),
@@ -78,13 +91,23 @@ pub fn calculate(
     scope: ScopeRef,
     scope_state: ScopeState,
     given_value: Value,
-) -> Result<Value, String> {
+) -> Result<Value, Exception> {
     Ok(match &*given_value.content {
         DynType::Pair(_) => calculate_call(special_forms, scope, scope_state, given_value)?,
-        DynType::Symbol(symbol) => scope.borrow().variable(&symbol)?,
+        DynType::Symbol(symbol) => match scope.borrow().variable(&symbol) {
+            Ok(variable) => variable,
+            Err(mut err) => {
+                err.traceback.push(given_value.position);
+                return Err(err);
+            }
+        },
         DynType::Quoted(quoted) => match &*(quoted.content) {
             DynType::Pair(pair) => rebuild_list_with_calculation(special_forms, scope, pair)?,
-            _ => return Err(format!("Only pair could be quoted"))
+            _ => return Err(Exception {
+                thrown_object: Value::new(DynType::Str(format!("Only pair could be quoted")), None),
+                traceback: vec![given_value.position],
+                previous_exception: None,
+            })
         },
         _ => given_value,
     })

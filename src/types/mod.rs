@@ -1,13 +1,14 @@
 pub mod value;
 pub mod dot_pair;
 pub mod list;
+pub mod exception;
 
 use std::{
     fmt::{Debug, Display},
     rc::Rc,
 };
 
-use self::{dot_pair::DotPair, list::List, value::Value};
+use self::{dot_pair::DotPair, exception::Exception, list::List, value::Value};
 
 
 
@@ -43,7 +44,7 @@ pub struct Struct {
 }
 
 impl Struct {
-    pub fn new(struct_type: Rc<StructType>, data: Value) -> Result<Self, String> {
+    pub fn new(struct_type: Rc<StructType>, data: Value) -> Result<Self, Exception> {
         let mut list = List::new(data.clone());
 
         for _ in &*struct_type.fields {
@@ -53,7 +54,7 @@ impl Struct {
         Ok(Self { struct_type, data })
     }
 
-    pub fn get_field(self, required_field: String) -> Result<Value, String> {
+    pub fn get_field(self, required_field: String) -> Result<Value, Exception> {
         let mut fields = List::new(self.data);
 
         for name in &(&*self.struct_type).fields {
@@ -63,7 +64,13 @@ impl Struct {
             }
         }
 
-        Err("Nothing was found".to_string())
+        Err(Exception {
+            thrown_object: Value::new(
+                DynType::Str(format!("{} field is not found", required_field)), None
+            ),
+            traceback: vec![],
+            previous_exception: None,
+        })
     }
 }
 
@@ -96,57 +103,93 @@ pub enum DynType {
     Symbol(String),
     Quoted(Value),
     Pair(DotPair),
-    Closure(Rc<dyn Fn(Value) -> Result<Value, String>>),
+    Closure(Rc<dyn Fn(Value) -> Result<Value, Exception>>),
     StructDeclare(Rc<StructType>),
     Struct(Struct),
 }
 
 impl DynType {
-    pub fn to_number(&self) -> Result<f64, String> {
+    pub fn to_number(&self) -> Result<f64, Exception> {
         if let DynType::Number(num) = self {
             Ok(*num)
         } else {
-            Err(format!("Expected Number, given, {}", &*self))
+            Err(Exception {
+                thrown_object: Value::new(
+                    DynType::Str(format!("Expected Number, given, {}", &*self)), None
+                ),
+                traceback: vec![],
+                previous_exception: None,
+            })
         }
     }
 
-    pub fn to_symbol(&self) -> Result<String, String> {
+    pub fn to_symbol(&self) -> Result<String, Exception> {
         if let DynType::Symbol(string) = self {
             Ok(string.clone())
         } else {
-            Err(format!("Expected Number, given, {}", &*self))
+            Err(Exception {
+                thrown_object: Value::new(
+                    DynType::Str(format!("Expected Number, given, {}", &*self)), None
+                ),
+                traceback: vec![],
+                previous_exception: None,
+            })
         }
     }
 
-    pub fn to_pair(&self) -> Result<&DotPair, String> {
+    pub fn to_pair(&self) -> Result<&DotPair, Exception> {
         if let DynType::Pair(pair) = self {
             Ok(pair)
         } else {
-            Err(format!("Expected Pair, given, {}", &*self))
+            Err(Exception {
+                thrown_object: Value::new(
+                    DynType::Str(format!("Expected Pair, given, {}", &*self)), None
+                ),
+                traceback: vec![],
+                previous_exception: None,
+            })
         }
     }
 
-    pub fn to_struct(&self) -> Result<Struct, String> {
+    pub fn to_struct(&self) -> Result<Struct, Exception> {
         if let DynType::Struct(value) = self {
             Ok(value.clone())
         } else {
-            Err(format!("Expected Record, given, {}", &*self))
+            Err(Exception {
+                thrown_object: Value::new(
+                    DynType::Str(format!("Expected Record, given, {}", &*self)), None
+                ),
+                traceback: vec![],
+                previous_exception: None,
+            })
         }
     }
 
-    pub fn to_closure(&self) -> Result<Rc<dyn Fn(Value) -> Result<Value, String>>, String> {
+    pub fn to_closure(&self) -> Result<Rc<dyn Fn(Value) -> Result<Value, Exception>>, Exception> {
         if let DynType::Closure(closure) = self {
             Ok(closure.clone())
         } else {
-            Err(format!("Expected Closure, given {}", self))
+            Err(Exception {
+                thrown_object: Value::new(
+                    DynType::Str(format!("Expected Closure, given {}", self)), None
+                ),
+                traceback: vec![],
+                previous_exception: None,
+            })
         }
     }
 
-    pub fn to_struct_declare(&self) -> Result<Rc<StructType>, String> {
+    pub fn to_struct_declare(&self) -> Result<Rc<StructType>, Exception> {
         if let DynType::StructDeclare(struct_type) = self {
             Ok(struct_type.clone())
         } else {
-            Err(format!("Expected RecordDeclare, given, {}", &*self))
+            Err(Exception {
+                thrown_object: Value::new(
+                    DynType::Str(format!("Expected RecordDeclare, given, {}", &*self)), None
+                ),
+                traceback: vec![],
+                previous_exception: None,
+            })
         }
     }
 }

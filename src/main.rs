@@ -8,8 +8,8 @@ mod parser;
 mod runtime;
 mod types;
 
-fn lexemes(text: &mut dyn Iterator<Item = char>) {
-    match lexer::lex(text) {
+fn lexemes(text: String) {
+    match lexer::lex(&mut text.chars()) {
         Ok(lx) => lx
             .iter()
             .enumerate()
@@ -18,8 +18,8 @@ fn lexemes(text: &mut dyn Iterator<Item = char>) {
     }
 }
 
-fn tree(text: &mut dyn Iterator<Item = char>) {
-    match lexer::lex(text) {
+fn tree(text: String) {
+    match lexer::lex(&mut text.chars()) {
         Ok(lexemes) => match parser::parse(&mut lexemes.into_iter()) {
             Ok(values) => values
                 .iter()
@@ -31,12 +31,25 @@ fn tree(text: &mut dyn Iterator<Item = char>) {
     }
 }
 
-fn exec(text: &mut dyn Iterator<Item = char>) {
-    match lexer::lex(text) {
+fn exec(text: String) {
+    match lexer::lex(&mut text.chars()) {
         Ok(lexemes) => match parser::parse(&mut lexemes.into_iter()) {
             Ok(values) => match runtime::execute(&mut values.into_iter()) {
                 Ok(_) => {}
-                Err(err) => eprintln!("{}", err),
+                Err(err) => {
+                    let lines: Vec<_> = text.lines().collect();
+                    eprintln!("Traceback:");
+                    for position in err.traceback.iter() {
+                        if let Some(pos) = position {
+                            eprintln!("{}-{}", pos.0, pos.1);
+                            eprintln!("{}", lines[pos.0 as usize - 1]);
+                            let mut arrow = std::iter::repeat("-").take(pos.1 as usize - 1).collect::<String>();
+                            arrow.push('^');
+                            eprintln!("{}", arrow);
+                        }
+                    }
+                    eprintln!("Exception: {:#?}", &err.thrown_object.content);
+                },
             },
             Err(err) => eprintln!("{}", err),
         },
@@ -56,17 +69,20 @@ fn main() {
         "--lexemes" => {
             let mut buffer = String::new();
             stdin().read_to_string(&mut buffer).unwrap();
-            lexemes(&mut buffer.chars())
+            println!("Ctrl^D");
+            lexemes(buffer)
         }
         "--tree" => {
             let mut buffer = String::new();
             stdin().read_to_string(&mut buffer).unwrap();
-            tree(&mut buffer.chars())
+            println!("Ctrl^D");
+            tree(buffer)
         }
         "--exec" => {
             let mut buffer = String::new();
             stdin().read_to_string(&mut buffer).unwrap();
-            exec(&mut buffer.chars())
+            println!("Ctrl^D");
+            exec(buffer)
         }
         m => eprintln!("{} is unknown mode", m),
     }

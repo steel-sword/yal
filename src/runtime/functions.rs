@@ -118,7 +118,7 @@ fn lang_num_div(args: Value) -> Result<Value, Exception> {
     let mut accum = list.next().to_middle()?.content.to_number()?;
 
     while let ListItem::Middle(value) = list.next() {
-        accum *= value.content.to_number()?;
+        accum /= value.content.to_number()?;
     }
     list.next().to_end()?;
     Ok(Value::new(DynType::Number(accum), None))

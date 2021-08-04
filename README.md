@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Yal is interpretable LISP-like language. My goal for maling a LISP is... If someone can make a LISP, why not?
+Yal is interpretable LISP-like language. My goal for making a LISP is... If someone can make a LISP, why not?
 
 Download the project and build it by command `cargo build --release`.
 You can find the interpreter in `target/release`, open the folder and run `./yal <filename>`

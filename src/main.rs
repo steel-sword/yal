@@ -1,7 +1,4 @@
-use std::{
-    env,
-    io::{stdin, Read},
-};
+use std::{env, fs, io::{stdin, Read}};
 
 mod lexer;
 mod parser;
@@ -86,6 +83,10 @@ fn main() {
             println!("Ctrl^D");
             exec(buffer)
         }
-        m => eprintln!("{} is unknown mode", m),
+        filename => {
+            let contents = fs::read_to_string(filename)
+                .expect("Something went wrong reading the file");
+            exec(contents)
+        },
     }
 }

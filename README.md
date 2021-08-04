@@ -48,7 +48,7 @@ It looks ugly but there is a short syntax for our linked list: `(1 2 3)`. It get
 You can make irregular linked list: `(1 2 . 3)`.
 The result will be: `(1 . (2 . 3))` instead of `(1 . (2 . (3 . ())))`
 
-So, the main paradigm of LISP is that everything is a linked list. Everything! The interpreter reads your file and condiders every first element of a linked list as referense to a function and the rest as its parameters and then calls it. If any parameter is a list too, it will calculate it the same way before it calls the outer.
+So, the main paradigm of LISP is that everything is a linked list. Everything! The interpreter reads your file and considers every first element of a linked list as referense to a function and the rest as its parameters and then calls it. If any parameter is a list too, it will calculate it the same way before it calls the outer.
 For example:
 ```
 (println 1)
@@ -64,7 +64,7 @@ So, the interpreter calls `(+ 1 2 3)` first and gets `6`, and then calls `(print
 
 Let's try something more difficult:
 ```
-(println (/ (+ (* 5 5) (* 10 15)) (+ (3 * 3) (* 15 2))))
+(println (/ (+ (* 5 5) (* 10 15)) (+ (* 3 3) (* 15 2))))
 ```
 You could say: 'it looks like a prefix notation'. Yes, it is!
 Let's look at some built-in functions:
@@ -91,7 +91,7 @@ Let's look at some built-in functions:
 - `split`: Gets string and splits it by the spaces or by the optional second parameter
 
 ### Special Forms
-Sometimes you need special ways of linked list calculation, not a function call and YAL can help you.
+Sometimes you need special ways of linked list calculation, not a function call and YAL (actually, any LISP) can help you.
 
 First one is the `if` special form.
 It works like that: Calculates the first parameter and if it is true (anything except `nil`) it calculates the first parameter and returns it, else it calculates the second parameter and returns it too.
@@ -99,8 +99,8 @@ For example:
 ```
 (println (if (= 5 5) 10 15))
 ```
-This code will print `10` not `15`.
-But why we need it to be a special form and calculated in this order? Couldn't we make an `if` function.
+This code will print `10`, not `15`.
+But why we need it to be a special form and calculated in this order? Couldn't we make an `if` function?
 This example will explain you
 ```
 (if (= (input) "hi") (println "Hello world") (println "Goodbye"))

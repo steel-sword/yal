@@ -9,7 +9,8 @@ use crate::{
         exception::Exception,
         list::{List, ListItem},
         value::Value,
-        DynType, StructType,
+        DynType,
+        struct_declare::StructType,
     },
 };
 

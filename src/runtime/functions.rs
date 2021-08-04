@@ -9,8 +9,9 @@ use crate::types::{
     dot_pair::DotPair,
     exception::Exception,
     list::{List, ListItem},
+    struct_declare::Struct,
     value::Value,
-    DynType, Struct,
+    DynType,
 };
 
 fn lang_new(args: Value) -> Result<Value, Exception> {
